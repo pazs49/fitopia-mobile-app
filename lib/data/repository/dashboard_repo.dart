@@ -132,6 +132,8 @@ class DashboardRepo {
 
   Future<DashboardContent> getContent({DateTime? selectedDate}) async {
     final dateText = selectedDate?.toIso8601String().split('T').first;
+    final todayText = DateTime.now().toIso8601String().split('T').first;
+    final isToday = dateText == null || dateText == todayText;
     final responses = await Future.wait<Map<String, dynamic>>([
       apiClient.getData('api/dashboard-detail'),
       apiClient.getData(
@@ -147,7 +149,7 @@ class DashboardRepo {
     ]);
 
     final dashboardData = _mapData(responses[0]);
-    final rawWorkout = dashboardData['todays_workout'];
+    final rawWorkout = isToday ? dashboardData['todays_workout'] : null;
     DashboardWorkout? workout;
     if (rawWorkout is Map) {
       final workoutData = rawWorkout['workout'];
@@ -160,7 +162,7 @@ class DashboardRepo {
       }
     }
 
-    if (workout == null) {
+    if (workout == null && isToday) {
       final todayWorkoutResponse =
           await apiClient.getData('api/ai-workouts/today');
       final todayWorkoutData = todayWorkoutResponse['data'];
@@ -198,6 +200,9 @@ class DashboardRepo {
       final assignedWorkouts = _listData(responses[2]);
       final workoutItems = assignedWorkouts
           .whereType<Map>()
+          .where((item) =>
+              dateText == null ||
+              item['assigned_date']?.toString().split('T').first == dateText)
           .map((item) =>
               DashboardWorkout.fromJson(Map<String, dynamic>.from(item)))
           .toList();
