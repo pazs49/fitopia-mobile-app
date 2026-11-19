@@ -134,21 +134,20 @@ class DashboardRepo {
     final dateText = selectedDate?.toIso8601String().split('T').first;
     final todayText = DateTime.now().toIso8601String().split('T').first;
     final isToday = dateText == null || dateText == todayText;
-    final responses = await Future.wait<Map<String, dynamic>>([
-      apiClient.getData('api/dashboard-detail'),
-      apiClient.getData(
-        dateText == null
-            ? 'api/assign-diet-list'
-            : 'api/assign-diet-list?date=$dateText',
-      ),
-      apiClient.getData(
-        dateText == null
-            ? 'api/assign-workout-list'
-            : 'api/assign-workout-list?date=$dateText',
-      ),
-    ]);
+    final dietResponse = apiClient.getData(
+      dateText == null
+          ? 'api/assign-diet-list'
+          : 'api/assign-diet-list?date=$dateText',
+    );
+    final responses = isToday
+        ? await Future.wait<Map<String, dynamic>>([
+            apiClient.getData('api/dashboard-detail'),
+            dietResponse,
+          ])
+        : await Future.wait<Map<String, dynamic>>([dietResponse]);
 
-    final dashboardData = _mapData(responses[0]);
+    final dashboardData =
+        isToday ? _mapData(responses[0]) : <String, dynamic>{};
     final rawWorkout = isToday ? dashboardData['todays_workout'] : null;
     DashboardWorkout? workout;
     if (rawWorkout is Map) {
@@ -196,22 +195,7 @@ class DashboardRepo {
       }
     }
 
-    if (workout == null) {
-      final assignedWorkouts = _listData(responses[2]);
-      final workoutItems = assignedWorkouts
-          .whereType<Map>()
-          .where((item) =>
-              dateText == null ||
-              item['assigned_date']?.toString().split('T').first == dateText)
-          .map((item) =>
-              DashboardWorkout.fromJson(Map<String, dynamic>.from(item)))
-          .toList();
-      if (workoutItems.isNotEmpty) {
-        workout = workoutItems.first;
-      }
-    }
-
-    final dietsData = _listData(responses[1]);
+    final dietsData = _listData(responses[isToday ? 1 : 0]);
     final meals = dietsData
         .whereType<Map>()
         .map((diet) => DashboardMeal.fromJson(Map<String, dynamic>.from(diet)))

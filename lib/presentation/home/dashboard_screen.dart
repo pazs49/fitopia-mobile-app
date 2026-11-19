@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -37,6 +39,7 @@ class _DashboardViewState extends State<DashboardView> {
   final Set<int> _loggingMealIds = <int>{};
   bool _redirectingToLogin = false;
   bool _selectedDayLoading = true;
+  Timer? _selectedDayLoadDebounce;
 
   @override
   void initState() {
@@ -44,6 +47,21 @@ class _DashboardViewState extends State<DashboardView> {
     _loadNutrition();
     _loadSelectedDay();
     _loadWeeklyCalories();
+  }
+
+  @override
+  void dispose() {
+    _selectedDayLoadDebounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scheduleSelectedDayLoad() {
+    _selectedDayLoadDebounce?.cancel();
+    _selectedDayLoadDebounce = Timer(
+      const Duration(milliseconds: 350),
+      _loadSelectedDay,
+    );
   }
 
   Future<void> _loadSelectedDay() async {
@@ -789,10 +807,13 @@ class _DashboardViewState extends State<DashboardView> {
     return WeekDaysToggleButtonsList(
       selected: selectedIndex,
       callback: (int index) {
+        if (index == selectedIndex) {
+          return;
+        }
         setState(() {
           selectedIndex = index;
         });
-        _loadSelectedDay();
+        _scheduleSelectedDayLoad();
       },
       list: itemList,
     );
