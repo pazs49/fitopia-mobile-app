@@ -13,7 +13,6 @@ flutter pub run easy_localization:generate -S "assets/translations" -O "lib/tran
  */
 
 class AppStrings {
-
   // Base URLs are injected at build/run time via --dart-define (see handover/HANDOVER.md).
   // Do NOT hardcode environment URLs here. Provide them with:
   //   flutter run --dart-define=APP_BASE_URL=... --dart-define=IMG_BASE_URL=...
@@ -21,6 +20,8 @@ class AppStrings {
       String.fromEnvironment('APP_BASE_URL', defaultValue: '');
   static const String imgBaseUrl =
       String.fromEnvironment('IMG_BASE_URL', defaultValue: '');
+  static const String stripePublishableKey =
+      String.fromEnvironment('STRIPE_PUBLISHABLE_KEY', defaultValue: '');
   // static const String LOGIN_URI = "api/mobile/sign-in";
   // static const String CHECK_EMAIL = "api/mobile/email/check";
   // static const String GENERAL_URI = "api/mobile/general";
@@ -38,7 +39,6 @@ class AppStrings {
   // static const String CREATE_STORY = "api/mobile/story/create";
   // static const String SEND_SMS = "api/mobile/message/send";
 
-
   static const String chat = "Chat";
   static const String help = "Help";
   static const String eBooks = "eBooks";
@@ -52,7 +52,6 @@ class AppStrings {
   static const String workoutRoutine = "Workout Routine";
   static const String loremipsum3lines =
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore";
-
 }
 //   ///Login
 //   static const String login = "LGOIN";
@@ -166,8 +165,6 @@ class AppStrings {
 // static const String WhatGenderdoYouidentityAs = "What gender do you identify as?";
 // static const String ThiswillUsedToCalculateMealplan = "This will be used to calculate the right lebel of nutrients for your meal plan";
 
-
-
 //   static const String eatTrainOptimumHealth =
 //       "Eat and train for optimum health";
 //   static const String buildYourStrengthMuscles =
@@ -188,7 +185,7 @@ class AppStrings {
 //   // static const String Regular = "Regular";
 //   // static const String MeatVegSeafoodTheLot = "Meat, veg, seafood, the lot.";
 //   // static const String Pescatarian = "Pescatarian";
- 
+
 //   // static const String HoldTheMeatSeafoodPlease =
 //   //     "Hold the meat and seafood please.";
 //   // // static const String Vegan = "Vegan";

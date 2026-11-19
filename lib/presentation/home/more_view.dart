@@ -89,9 +89,9 @@ class MoreView extends StatelessWidget {
                         case 9:
                           Navigator.pushNamed(context, Routes.helpPageRoute);
                           break;
-                        // case 10:
-                        //   Navigator.pushNamed(context, Routes.logoutPageRoute);
-                        //  break;
+                        case 10:
+                          Navigator.pushNamed(context, Routes.logoutPageRoute);
+                          break;
                         default:
                       }
                     });

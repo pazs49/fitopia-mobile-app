@@ -60,7 +60,9 @@ class _LoginViewState extends State<LoginView> {
     if (success) {
       Navigator.pushReplacementNamed(
         context,
-        Routes.subscriptionViewPageRoute,
+        _authController.isSubscribed
+            ? Routes.HomePageRoute
+            : Routes.subscriptionViewPageRoute,
       );
       return;
     }

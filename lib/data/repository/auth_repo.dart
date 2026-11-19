@@ -14,4 +14,8 @@ class AuthRepo {
       },
     );
   }
+
+  Future<void> logout() async {
+    await apiClient.getData('api/logout');
+  }
 }

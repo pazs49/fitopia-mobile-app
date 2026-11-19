@@ -9,6 +9,8 @@ class LineChartSample7 extends StatelessWidget {
     Color? line1Color,
     Color? line2Color,
     Color? betweenColor,
+    this.values = const [],
+    this.labels = const [],
   })  : line1Color = line1Color ?? AppColors.contentColorGreen,
         line2Color = line2Color ?? AppColors.contentColorRed,
         betweenColor =
@@ -17,53 +19,16 @@ class LineChartSample7 extends StatelessWidget {
   final Color line1Color;
   final Color line2Color;
   final Color betweenColor;
+  final List<double> values;
+  final List<String> labels;
 
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.bold,
     );
-    String text;
-    switch (value.toInt()) {
-      case 0:
-        text = 'SUN';
-        break;
-      case 1:
-        text = 'MON';
-        break;
-      case 2:
-        text = 'TUE';
-        break;
-      case 3:
-        text = 'WED';
-        break;
-      case 4:
-        text = 'THU';
-        break;
-      case 5:
-        text = 'FRI';
-        break;
-      case 6:
-        text = 'SAT';
-        //break;
-        // case 7:
-        //   text = 'Aug';
-        //   break;
-        // case 8:
-        //   text = 'Sep';
-        //   break;
-        // case 9:
-        //   text = 'Oct';
-        //   break;
-        // case 10:
-        //   text = 'Nov';
-        //   break;
-        // case 11:
-        //   text = 'Dec';
-        break;
-      default:
-        return Container();
-    }
+    final index = value.toInt();
+    final text = index >= 0 && index < labels.length ? labels[index] : '';
 
     return SideTitleWidget(
       axisSide: meta.axisSide,
@@ -73,59 +38,29 @@ class LineChartSample7 extends StatelessWidget {
   }
 
   Widget leftTitleWidgets(double value, TitleMeta meta) {
-    const style = TextStyle(
-      fontSize: 10,
-      //fontWeight: FontWeight.,
-    );
-    String text;
-    switch (value.toInt()) {
-      case 0:
-        text = '';
-        break;
-      case 1:
-        text = '0';
-        break;
-      case 2:
-        text = '100';
-        break;
-      case 3:
-        text = '200';
-        break;
-      case 4:
-        text = '300';
-        break;
-      case 5:
-        text = '400';
-        break;
-      // case 6:
-      //   text = '600';
-      //   break;
-
-      default:
-        return Container();
-    }
+    const style = TextStyle(fontSize: 10);
 
     return SideTitleWidget(
       axisSide: meta.axisSide,
       space: 10,
-      child: Text(text, style: style),
+      child: Text(
+        value.round().toString(),
+        style: style,
+      ),
     );
   }
 
-  // Widget leftTitleWidgets(double value, TitleMeta meta) {
-  //   const style = TextStyle(fontSize: 10);
-
-  //   return SideTitleWidget(
-  //     axisSide: meta.axisSide,
-  //     child: Text(
-  //       value.toString(), //'\$ ${value + 0.5}',
-  //       style: style,
-  //     ),
-  //   );
-  // }
-
   @override
   Widget build(BuildContext context) {
+    final chartValues =
+        values.isEmpty ? const [1.0, 4.5, 2.0, 4.2, 1.9, 4.3, 2.2] : values;
+    final highestValue = chartValues.fold<double>(
+      0,
+      (highest, value) => value > highest ? value : highest,
+    );
+    final chartMax = highestValue <= 0 ? 1.0 : highestValue * 1.2;
+    final interval = chartMax / 4;
+
     return AspectRatio(
       aspectRatio: 3,
       child: Padding(
@@ -140,61 +75,19 @@ class LineChartSample7 extends StatelessWidget {
             lineTouchData: LineTouchData(enabled: false),
             lineBarsData: [
               LineChartBarData(
-                spots: const [
-                  FlSpot(0, 1),
-                  FlSpot(0.8, 4.5),
-                  FlSpot(1.5, 2),
-                  FlSpot(2.2, 4.2),
-                  FlSpot(2.9, 1.9),
-                  FlSpot(3.2, 4.3),
-                  FlSpot(4.0, 2.2),
-                  FlSpot(5.0, 4.4),
-                  // FlSpot(8, 4),
-                  // FlSpot(9, 6),
-                  // FlSpot(10, 6),
-                  // FlSpot(11, 7),
+                spots: [
+                  for (var index = 0; index < chartValues.length; index++)
+                    FlSpot(index.toDouble(), chartValues[index]),
                 ],
                 isCurved: true,
                 barWidth: 2,
                 color: line1Color,
-                dotData: FlDotData(
-                  show: false,
-                ),
-              ),
-              LineChartBarData(
-                spots: const [
-                  FlSpot(0, 5),
-                  FlSpot(1, 3),
-                  FlSpot(2, 4),
-                  FlSpot(3, 2),
-                  FlSpot(4, 3),
-                  FlSpot(5, 4),
-                  //     FlSpot(6, 5),
-                  //     // FlSpot(7, 3),
-                  //     // FlSpot(8, 1),
-                  //     // FlSpot(9, 8),
-                  //     // FlSpot(10, 1),
-                  //     // FlSpot(11, 3),
-                ],
-                isCurved: false,
-                barWidth: 2,
-                color: line2Color,
-                dotData: FlDotData(
-                  show: false,
-                ),
+                dotData: FlDotData(show: false),
               ),
             ],
-            // betweenBarsData: [
-            //   BetweenBarsData(
-            //     fromIndex: 0,
-            //     toIndex: 1,
-            //     color: betweenColor,
-            //   )
-            // ],
             minY: 0,
-            borderData: FlBorderData(
-              show: false,
-            ),
+            maxY: chartMax,
+            borderData: FlBorderData(show: false),
             titlesData: FlTitlesData(
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
@@ -207,7 +100,7 @@ class LineChartSample7 extends StatelessWidget {
                 sideTitles: SideTitles(
                   showTitles: true,
                   getTitlesWidget: leftTitleWidgets,
-                  interval: 1,
+                  interval: interval,
                   reservedSize: 36,
                 ),
               ),
@@ -221,12 +114,7 @@ class LineChartSample7 extends StatelessWidget {
             gridData: FlGridData(
               show: true,
               drawVerticalLine: false,
-              horizontalInterval: 1,
-              // drawHorizontalLine: true
-              //checkToShowHorizontalLine:
-              // checkToShowHorizontalLine: (double value) {
-              //   return value == 1 || value == 6 || value == 4 || value == 5;
-              // },
+              horizontalInterval: interval,
             ),
           ),
         ),

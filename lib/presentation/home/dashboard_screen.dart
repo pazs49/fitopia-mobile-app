@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fitopia/model/deshboard_model.dart';
+import 'package:fitopia/model/dashboard_nutrition_model.dart';
+import 'package:fitopia/data/api/api_client.dart';
+import 'package:fitopia/data/repository/dashboard_repo.dart';
+import 'package:fitopia/model/dashboard_content_model.dart';
 import 'package:fitopia/translations/locale_keys.g.dart';
 import 'package:fitopia/widgets/line_cahrt_sample7.dart';
 import 'package:fitopia/widgets/products_card_widgets.dart';
@@ -22,7 +26,231 @@ class DashboardView extends StatefulWidget {
 
 class _DashboardViewState extends State<DashboardView> {
   final PageController _controller = PageController(initialPage: 0);
-  int selectedIndex = 0;
+  final DashboardRepo _dashboardRepo = DashboardRepo(apiClient: ApiClient());
+  int selectedIndex = DateTime.now().weekday % 7;
+  DashboardNutrition? _nutrition;
+  String? _nutritionError;
+  DashboardContent? _content;
+  String? _contentError;
+  DashboardWeeklyCalories? _weeklyCalories;
+  final Set<int> _loggedMealIds = <int>{};
+  final Set<int> _loggingMealIds = <int>{};
+  bool _redirectingToLogin = false;
+  bool _selectedDayLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNutrition();
+    _loadSelectedDay();
+    _loadWeeklyCalories();
+  }
+
+  Future<void> _loadSelectedDay() async {
+    setState(() {
+      _selectedDayLoading = true;
+      _content = null;
+      _loggedMealIds.clear();
+    });
+
+    await Future.wait<void>([
+      _loadContent(selectedDate: _selectedDate),
+      _loadLoggedMeals(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _selectedDayLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadNutrition() async {
+    try {
+      final nutrition = await _dashboardRepo.getNutrition();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _nutrition = nutrition;
+        _nutritionError = null;
+      });
+    } on ApiException catch (error) {
+      _redirectIfSessionExpired(error);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _nutritionError = error.message;
+      });
+    }
+  }
+
+  Future<void> _loadContent({DateTime? selectedDate}) async {
+    try {
+      final content =
+          await _dashboardRepo.getContent(selectedDate: selectedDate);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _content = content;
+        _contentError = null;
+        _loggedMealIds
+          ..removeWhere(
+            (id) => !content.meals.any((meal) => meal.id == id && meal.logged),
+          )
+          ..addAll(
+            content.meals.where((meal) => meal.logged).map((meal) => meal.id),
+          );
+      });
+    } on ApiException catch (error) {
+      _redirectIfSessionExpired(error);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _contentError = error.message;
+      });
+    }
+  }
+
+  Future<void> _loadWeeklyCalories() async {
+    try {
+      final weeklyCalories = await _dashboardRepo.getWeeklyCalories();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _weeklyCalories = weeklyCalories;
+      });
+    } on ApiException catch (error) {
+      _redirectIfSessionExpired(error);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _weeklyCalories = const DashboardWeeklyCalories(
+          values: [0, 0, 0, 0, 0, 0, 0],
+          labels: ['', '', '', '', '', '', ''],
+        );
+      });
+    }
+  }
+
+  void _redirectIfSessionExpired(ApiException error) {
+    if (error.statusCode != 401 || _redirectingToLogin || !mounted) {
+      return;
+    }
+
+    _redirectingToLogin = true;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      Routes.loginRoute,
+      (route) => false,
+    );
+  }
+
+  Future<void> _logMeal(DashboardMeal meal) async {
+    if (meal.id == 0 ||
+        _loggedMealIds.contains(meal.id) ||
+        _loggingMealIds.contains(meal.id)) {
+      return;
+    }
+
+    setState(() {
+      _loggingMealIds.add(meal.id);
+    });
+
+    try {
+      await _dashboardRepo.logMeal(meal);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loggingMealIds.remove(meal.id);
+        _loggedMealIds.add(meal.id);
+      });
+
+      await Future.wait<void>([
+        _loadNutrition(),
+        _loadWeeklyCalories(),
+      ]);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${meal.title} marked as eaten.')),
+      );
+    } on ApiException catch (error) {
+      _redirectIfSessionExpired(error);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loggingMealIds.remove(meal.id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<void> _loadLoggedMeals() async {
+    try {
+      final loggedMealIds =
+          await _dashboardRepo.getLoggedMealIds(_selectedDate);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loggedMealIds
+          ..clear()
+          ..addAll(loggedMealIds);
+      });
+    } on ApiException {
+      // The meal list remains usable if the optional status lookup fails.
+    }
+  }
+
+  List<weekDaysModel> get _currentWeekDays {
+    final today = DateTime.now();
+    final sunday = today.subtract(Duration(days: today.weekday % 7));
+    const labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+    return List<weekDaysModel>.generate(7, (index) {
+      final date = sunday.add(Duration(days: index));
+      return weekDaysModel(
+        id: index,
+        day: labels[index],
+        date: date.day.toString(),
+      );
+    });
+  }
+
+  DateTime get _selectedDate {
+    final today = DateTime.now();
+    final sunday = DateTime(
+      today.year,
+      today.month,
+      today.day - (today.weekday % 7),
+    );
+    return sunday.add(Duration(days: selectedIndex));
+  }
+
+  bool get _isSelectedDateToday {
+    final today = DateTime.now();
+    final selectedDate = _selectedDate;
+    return selectedDate.year == today.year &&
+        selectedDate.month == today.month &&
+        selectedDate.day == today.day;
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -65,10 +293,28 @@ class _DashboardViewState extends State<DashboardView> {
       // ),
 
       UserNotification(),
+      if (_nutritionError != null)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _nutritionError!,
+                  style: TextStyle(color: Colors.red, fontSize: 12.mv),
+                ),
+              ),
+              TextButton(
+                onPressed: _loadNutrition,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       //SizedBox(height: 15.0),
       linegraph(),
 
-      weekdaysWidget(weekDaysList),
+      weekdaysWidget(_currentWeekDays),
       //progressbar(),
       //dotIndicator(),
       Padding(
@@ -160,34 +406,138 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget todayWorkout() {
+    if (_selectedDayLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final workout = _content?.workout;
+    if (workout == null) {
+      return _contentError == null
+          ? const SizedBox.shrink()
+          : _contentMessage(_contentError!, _loadContent);
+    }
+
     return ProductCardWidget(
       index: 0,
-      title: "Self-Guided",
-      subtile: "Muscle building: High-powered legs",
-      des: "50 Min,  Glutes, Legs, Lower body",
+      title: workout.type.isEmpty
+          ? (workout.level.isEmpty ? 'Workout' : workout.level)
+          : workout.type,
+      subtile: workout.title,
+      des: workout.description,
       imagepath: ImageAssets.workoutImage1,
     );
   }
 
   Widget todayMeals() {
+    if (_selectedDayLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final meals = _content?.meals ?? const <DashboardMeal>[];
+    if (_content == null) {
+      return _contentError == null
+          ? const SizedBox.shrink()
+          : _contentMessage(_contentError!, _loadContent);
+    }
+
+    if (meals.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Text('No assigned meals yet.'),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 7.0),
       child: ListView.builder(
         // scrollDirection: Axis.vertical,
-        itemCount: mealsList!.length,
+        itemCount: meals.length,
         shrinkWrap: true,
         physics: NeverScrollableScrollPhysics(),
         itemBuilder: (context, index) {
-          return ProductCardWidget(
-            index: index,
-            title: mealsList![index].title ?? "",
-            subtile: mealsList![index].subtitle ?? "",
-            des: mealsList![index].description ?? "",
-            imagepath: mealsList![index].ImagePath ?? "",
+          final meal = meals[index];
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ProductCardWidget(
+                index: index,
+                title: meal.category,
+                subtile: meal.title,
+                des: _mealDescription(meal),
+                imagepath: _mealImage(index),
+              ),
+              TextButton.icon(
+                onPressed: _selectedDayLoading ||
+                        !_isSelectedDateToday ||
+                        _loggedMealIds.contains(meal.id) ||
+                        _loggingMealIds.contains(meal.id)
+                    ? null
+                    : () => _logMeal(meal),
+                icon: Icon(
+                  _loggedMealIds.contains(meal.id)
+                      ? Icons.check_circle
+                      : Icons.check_circle_outline,
+                ),
+                label: Text(
+                  _loggedMealIds.contains(meal.id)
+                      ? 'Eaten'
+                      : _selectedDayLoading
+                          ? 'Loading...'
+                          : !_isSelectedDateToday
+                              ? 'Available today'
+                              : _loggingMealIds.contains(meal.id)
+                                  ? 'Saving...'
+                                  : 'Mark as eaten',
+                ),
+              ),
+            ],
           );
         },
       ),
     );
+  }
+
+  Widget _contentMessage(String message, VoidCallback retry) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          Expanded(child: Text(message)),
+          TextButton(onPressed: retry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
+  String _mealImage(int index) {
+    const images = [
+      ImageAssets.mealsImage1,
+      ImageAssets.mealsImage2,
+      ImageAssets.mealsImage3,
+      ImageAssets.mealsImage4,
+    ];
+    return images[index % images.length];
+  }
+
+  String _mealDescription(DashboardMeal meal) {
+    if (meal.duration.isEmpty) {
+      return meal.description;
+    }
+    if (meal.description.isEmpty) {
+      return meal.duration;
+    }
+
+    return '${meal.duration}, ${meal.description}';
   }
 
   Widget calories() {
@@ -219,15 +569,20 @@ class _DashboardViewState extends State<DashboardView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    circleWidget("2050", "Remaining", 110, 110),
+                    circleWidget(
+                        _formatNumber(_nutrition?.calories.remaining ?? 0),
+                        "Remaining",
+                        110,
+                        110),
                     Padding(
                       padding: const EdgeInsets.only(right: 20.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          listTile(
-                              ImageAssets.BaseGoalIcon, "Base Goal", "2050"),
-                          listTile(ImageAssets.foodIcon, "Food", "0"),
+                          listTile(ImageAssets.BaseGoalIcon, "Base Goal",
+                              _formatNumber(_nutrition?.calories.goal ?? 0)),
+                          listTile(ImageAssets.foodIcon, "Food",
+                              _formatNumber(_foodCalories)),
                           listTile(ImageAssets.ExerciseIcon, "Exercise", "0"),
                         ],
                       ),
@@ -269,7 +624,8 @@ class _DashboardViewState extends State<DashboardView> {
                                 Theme.of(context).textTheme.bodyText1!.color!,
                             fontSize: 14.mv)),
                     SizedBox(height: 10.0),
-                    circleWidget("0", "/256g", 100, 100),
+                    circleWidget(_formatNumber(_macroAmount('Carbs')),
+                        "/${_formatNumber(_macroGoal('Carbs'))}g", 100, 100),
                   ],
                 ),
                 Column(
@@ -281,7 +637,8 @@ class _DashboardViewState extends State<DashboardView> {
                                 Theme.of(context).textTheme.bodyText1!.color!,
                             fontSize: 14.mv)),
                     SizedBox(height: 10.0),
-                    circleWidget("0", "/86g", 100, 100),
+                    circleWidget(_formatNumber(_macroAmount('Fats')),
+                        "/${_formatNumber(_macroGoal('Fats'))}g", 100, 100),
                   ],
                 ),
                 Column(
@@ -293,7 +650,8 @@ class _DashboardViewState extends State<DashboardView> {
                                 Theme.of(context).textTheme.bodyText1!.color!,
                             fontSize: 14.mv)),
                     SizedBox(height: 10.0),
-                    circleWidget("0", "/102g", 100, 100),
+                    circleWidget(_formatNumber(_macroAmount('Protein')),
+                        "/${_formatNumber(_macroGoal('Protein'))}g", 100, 100),
                   ],
                 ),
               ],
@@ -303,6 +661,18 @@ class _DashboardViewState extends State<DashboardView> {
         ),
       ),
     );
+  }
+
+  double get _foodCalories => _nutrition?.macro('Calories')?.amount ?? 0;
+
+  double _macroAmount(String name) => _nutrition?.macro(name)?.amount ?? 0;
+
+  double _macroGoal(String name) => _nutrition?.macro(name)?.goal ?? 0;
+
+  String _formatNumber(double value) {
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(1);
   }
 
   Widget circleWidget(
@@ -366,6 +736,7 @@ class _DashboardViewState extends State<DashboardView> {
         setState(() {
           selectedIndex = index;
         });
+        _loadSelectedDay();
       },
       list: itemList,
     );
@@ -644,7 +1015,6 @@ class _DashboardViewState extends State<DashboardView> {
                   padding: const EdgeInsets.all(8.0),
                   child: SvgPicture.asset(ImageAssets.arrowBack),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: Column(
@@ -672,7 +1042,6 @@ class _DashboardViewState extends State<DashboardView> {
                     ],
                   ),
                 ),
-               
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: SvgPicture.asset(ImageAssets.arrowForward),
@@ -688,6 +1057,8 @@ class _DashboardViewState extends State<DashboardView> {
                   betweenColor: Colors.transparent,
                   line2Color: Colors.transparent,
                   line1Color: ColorManager.graphLineColor,
+                  values: _weeklyCalories?.values ?? const [],
+                  labels: _weeklyCalories?.labels ?? const [],
                 ),
               ),
             ),

@@ -19,7 +19,6 @@ import 'package:fitopia/presentation/receipe_list/receipe_list_screen.dart';
 import 'package:fitopia/presentation/settings/settings_screen.dart';
 import 'package:fitopia/presentation/signup/signup_screen.dart';
 import 'package:fitopia/presentation/splash/splash_screen.dart';
-import 'package:fitopia/presentation/subscription/selected_package_screen.dart';
 import 'package:fitopia/presentation/subscription/subscription_screen.dart';
 import 'package:fitopia/presentation/workout_routine/workout_routine_screen.dart';
 import 'package:flutter/material.dart';
@@ -103,7 +102,7 @@ class RouteGenerator {
       case Routes.subscriptionViewPageRoute:
         return MaterialPageRoute(builder: (_) => SubscriptionView());
       case Routes.CreaditCardAddViewPageRoute:
-        return MaterialPageRoute(builder: (_) => CreaditCardAddView());
+        return MaterialPageRoute(builder: (_) => SubscriptionView());
 
       default:
         return unDefinedRoute();

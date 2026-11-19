@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:fitopia/widgets/background_image_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:get_storage/get_storage.dart';
 import '../resources/index_manager.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -18,8 +19,13 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   _goNext() {
-    Navigator.pushReplacementNamed(context, Routes.introductionRoute);
-    // Navigator.pushReplacementNamed(context, Routes.subscriptionViewPageRoute);
+    final token = GetStorage().read<String>('api_token');
+    Navigator.pushReplacementNamed(
+      context,
+      token != null && token.isNotEmpty
+          ? Routes.HomePageRoute
+          : Routes.loginRoute,
+    );
   }
 
   @override

@@ -13,6 +13,16 @@ class AuthController extends GetxController {
   bool isLoading = false;
   String? errorMessage;
 
+  bool get isSubscribed {
+    final userData = storage.read('user_data');
+    if (userData is! Map) {
+      return false;
+    }
+
+    final value = userData['is_subscribe'];
+    return value == 1 || value == '1' || value == true;
+  }
+
   Future<bool> login(String email, String password) async {
     isLoading = true;
     errorMessage = null;
@@ -47,5 +57,20 @@ class AuthController extends GetxController {
       isLoading = false;
       update();
     }
+  }
+
+  Future<String?> logout() async {
+    String? logoutError;
+    try {
+      await authRepo.logout();
+    } on ApiException catch (error) {
+      logoutError = error.message;
+    } finally {
+      await storage.remove('api_token');
+      await storage.remove('refresh_token');
+      await storage.remove('user_data');
+    }
+
+    return logoutError;
   }
 }
