@@ -1,100 +1,93 @@
-// import 'dart:convert';
-// import 'dart:io';
-// import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
-// import 'package:http/http.dart' as Http;
-// import '../../presentation/resources/index_manager.dart';
+import 'dart:async';
+import 'dart:convert';
 
-// class ApiClient extends GetxService {
-//    String appBaseUrl=AppStrings.appBaseUrl;
-//   static final String noInternetMessage = 'Connection to API server failed due to internet connection';
-//   final int timeoutInSeconds = 30;
-//   Future<Response> getData(String uri,) async {
-//     try {
-//       debugPrint('====> API Call: $uri');
-//       Http.Response _response = await Http.get(
-//         Uri.parse(appBaseUrl+uri),
-//       ).timeout(Duration(seconds: timeoutInSeconds));
-//       return handleResponse(_response, uri);
-//     } catch (e) {
-//       return Response(statusCode: 1, statusText: noInternetMessage);
-//     }
-//   }
+import 'package:fitopia/presentation/resources/index_manager.dart';
+import 'package:http/http.dart' as http;
 
-//   Future<Response> postData(String uri, dynamic body,) async {
-//     try {
-//       debugPrint('====> API Call: ${appBaseUrl+uri}');
-//       debugPrint('====> API Body: $body');
-//       Http.Response _response = await Http.post(
-//         Uri.parse(appBaseUrl+uri),
-//         body:body,
-//       ).timeout(Duration(seconds: timeoutInSeconds));
-//       return handleResponse(_response, uri);
-//     } catch (e) {
-//       return Response(statusCode: 1, statusText: noInternetMessage);
-//     }
-//   }
+class ApiException implements Exception {
+  final String message;
+  final int? statusCode;
 
-//   Future<Response> puttData(String uri, dynamic body,) async {
-//     try {
-//       debugPrint('====> API Call: ${appBaseUrl+uri}');
-//       debugPrint('====> API Body: $body');
-//       Http.Response _response = await Http.put(
-//         Uri.parse(appBaseUrl+uri),
-//         body:body,
-//       ).timeout(Duration(seconds: timeoutInSeconds));
-//       return handleResponse(_response, uri);
-//     } catch (e) {
-//       print("=======e:$e=======");
-//       return Response(statusCode: 1, statusText: noInternetMessage);
-//     }
-//   }
-//    Future<Response> postMultipartData(String uri, Map<String, String> body, List<MultipartBody> multipartBody,) async {
-//      try {
-//        debugPrint('====> API Call: $uri');
-//        debugPrint('====> API Body: $body');
-//        Http.MultipartRequest _request = Http.MultipartRequest('POST', Uri.parse(appBaseUrl+uri));
-//        for(MultipartBody multipart in multipartBody) {
-//          if(multipart.file != null) {
-//            File _file = File(multipart.file.path);
-//            _request.files.add(Http.MultipartFile(
-//              multipart.key, _file.readAsBytes().asStream(), _file.lengthSync(), filename: _file.path.split('/').last,
-//            ));
-//          }
-//        }
-//        _request.fields.addAll(body);
-//        Http.Response _response = await Http.Response.fromStream(await _request.send());
-//        return handleResponse(_response, uri);
-//      } catch (e) {
-//        return Response(statusCode: 1, statusText: noInternetMessage);
-//      }
-//    }
-//   Response handleResponse(Http.Response response, String uri) {
-//     dynamic _body;
-//     try {
-//       _body = jsonDecode(response.body);
-//     }catch(e) {}
-//     Response _response = Response(
-//       body: _body != null ? _body : response.body, bodyString: response.body.toString(),
-//       headers: response.headers, statusCode: response.statusCode, statusText: response.reasonPhrase,
-//     );
-//     if(_response.statusCode != 200 && _response.body != null && _response.body is !String) {
-//       if(_response.body.toString().startsWith('{errors: [{code:')) {
-//         ErrorResponse _errorResponse = ErrorResponse.fromJson(_response.body);
-//         _response = Response(statusCode: _response.statusCode, body: _response.body, statusText: _errorResponse.errors[0].message);
-//       }else if(_response.body.toString().startsWith('{message')) {
-//         _response = Response(statusCode: _response.statusCode, body: _response.body, statusText: _response.body['message']);
-//       }
-//     }else if(_response.statusCode != 200 && _response.body == null) {
-//       _response = Response(statusCode: 0, statusText: noInternetMessage);
-//     }
-//     debugPrint('====> API Response: [${_response.statusCode}] $uri\n${uri=="api/mobile/general"?"": _response.body}');
-//     return _response;
-//   }
-// }
-// class MultipartBody {
-//   String key;
-//   XFile file;
+  ApiException(this.message, {this.statusCode});
 
-//   MultipartBody(this.key, this.file);
-// }
+  @override
+  String toString() => message;
+}
+
+class ApiClient {
+  static const Duration _timeout = Duration(seconds: 30);
+
+  Uri _uri(String path) {
+    if (AppStrings.appBaseUrl.isEmpty) {
+      throw ApiException(
+        'The API base URL is not configured. '
+        'Run the app with --dart-define=APP_BASE_URL=...',
+      );
+    }
+
+    return Uri.parse(AppStrings.appBaseUrl).resolve(path);
+  }
+
+  Future<Map<String, dynamic>> postData(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final uri = _uri(path);
+
+    try {
+      final response = await http
+          .post(
+            uri,
+            headers: const {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout);
+
+      final decodedBody = _decodeBody(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          _messageFrom(decodedBody, 'The request failed.'),
+          statusCode: response.statusCode,
+        );
+      }
+
+      return decodedBody;
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException('The request timed out. Please try again.');
+    } on http.ClientException {
+      throw ApiException(
+        'Could not connect to the API. Check that the backend is running.',
+      );
+    }
+  }
+
+  Map<String, dynamic> _decodeBody(http.Response response) {
+    if (response.body.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } on FormatException {
+      // Fall through to the explicit API error below.
+    }
+
+    throw ApiException(
+      'The API returned an invalid response.',
+      statusCode: response.statusCode,
+    );
+  }
+
+  String _messageFrom(Map<String, dynamic> body, String fallback) {
+    final message = body['message'];
+    return message is String && message.isNotEmpty ? message : fallback;
+  }
+}

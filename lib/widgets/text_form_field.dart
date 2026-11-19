@@ -4,6 +4,7 @@ import '../presentation/resources/index_manager.dart';
 
 // ignore: must_be_immutable
 class CustomeTextFormField extends StatefulWidget {
+  final TextEditingController? controller;
   String? hintText;
   bool obscureText;
   double horizontalMergin;
@@ -14,6 +15,7 @@ class CustomeTextFormField extends StatefulWidget {
   String? Function(String?)? validator;
   CustomeTextFormField({
     Key? key,
+    this.controller,
     this.hintText,
     this.validator,
     this.fillColor = Colors.white,
@@ -42,6 +44,7 @@ class _CustomeTextFormFieldState extends State<CustomeTextFormField> {
       margin: EdgeInsets.symmetric(
           horizontal: AppSize.sizeWidth(context) * widget.horizontalMergin),
       child: TextFormField(
+        controller: widget.controller,
         style: TextStyle(color: ColorManager.blackColor),
         keyboardType: widget.keyboardType,
         validator: widget.validator,

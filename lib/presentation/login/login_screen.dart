@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:fitopia/controller/auth_controller.dart';
 import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:fitopia/translations/locale_keys.g.dart';
 import 'package:fitopia/widgets/app_logo_widget.dart';
@@ -20,7 +21,59 @@ class LoginView extends StatefulWidget {
 
 class _LoginViewState extends State<LoginView> {
   bool rememberMe = false;
+  bool _isSubmitting = false;
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _authController = AuthController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _authController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    final success = await _authController.login(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = false;
+    });
+
+    if (success) {
+      Navigator.pushReplacementNamed(
+        context,
+        Routes.subscriptionViewPageRoute,
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _authController.errorMessage ?? 'Unable to sign in.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BackgroundImage(
@@ -60,13 +113,17 @@ class _LoginViewState extends State<LoginView> {
                 ),
                 SizedBox(height: AppSize.s28.vs),
                 CustomeTextFormField(
+                  controller: _emailController,
                   hintText: LocaleKeys.enterYourEmail.tr(),
-                  // fillColor: ColorManager.primarydarkColor,
+                  keyboardType: TextInputType.emailAddress,
                   validator: (String? val) {
-                    //   if (val == null || val.isEmpty) {
-                    //     return AppStrings.enterYourEmail;
-                    //   }
-                    //   return null;
+                    if (val == null || val.trim().isEmpty) {
+                      return LocaleKeys.enterYourEmail.tr();
+                    }
+                    if (!val.contains('@')) {
+                      return 'Enter a valid email address.';
+                    }
+                    return null;
                   },
                 ),
                 Align(
@@ -93,25 +150,22 @@ class _LoginViewState extends State<LoginView> {
                 ),
                 SizedBox(height: 2.vs),
                 CustomeTextFormField(
+                  controller: _passwordController,
                   obscureText: true,
                   hintText: LocaleKeys.enterYourPassword
                       .tr(), // AppStrings.enterYourPassword,
-                  //fillColor: ColorManager.primarydarkColor,
                   validator: (String? val) {
-                    // if (val == null || val.isEmpty) {
-                    //   return AppStrings.enterYourPassword;
-                    // }
-                    // return null;
+                    if (val == null || val.isEmpty) {
+                      return LocaleKeys.enterYourPassword.tr();
+                    }
+                    return null;
                   },
                 ),
                 SizedBox(height: 10.vs),
                 button(
                     text: LocaleKeys.login.tr(), //AppStrings.login,
                     color: ColorManager.primary,
-                    onTap: () {
-                      Navigator.pushReplacementNamed(
-                          context, Routes.subscriptionViewPageRoute);
-                    }),
+                    onTap: _isSubmitting ? null : _handleLogin),
                 SizedBox(height: 1.vs),
                 textspan(
                   text1: LocaleKeys.dontHaveAnAccount

@@ -1,223 +1,51 @@
-// import 'package:get/get.dart';
-// import 'package:get_storage/get_storage.dart';
-// import 'package:fitopia/data/api/api_client.dart';
-// import 'package:fitopia/data/repository/auth_repo.dart';
+import 'package:fitopia/data/api/api_client.dart';
+import 'package:fitopia/data/repository/auth_repo.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
-// class AuthController extends GetxController implements GetxService {
+class AuthController extends GetxController {
+  AuthController({AuthRepo? authRepo})
+      : authRepo = authRepo ?? AuthRepo(apiClient: ApiClient());
 
+  final AuthRepo authRepo;
+  final GetStorage storage = GetStorage();
 
-//   final AuthRepo authRepo = AuthRepo(apiClient: ApiClient());
+  bool isLoading = false;
+  String? errorMessage;
 
-//   String? fistName;
-//   String? lastName;
-//   String? phone;
-//   String? emailAddress;
-//   String? password;
+  Future<bool> login(String email, String password) async {
+    isLoading = true;
+    errorMessage = null;
+    update();
 
+    try {
+      final response = await authRepo.login(email, password);
+      final rawData = response['data'];
 
-//   var box = GetStorage();
-//   bool isLoading = false;
+      if (rawData is! Map) {
+        throw ApiException('The login response did not contain user data.');
+      }
 
-//   @override
-//   void onInit() {
+      final userData = Map<String, dynamic>.from(rawData);
+      final apiToken = userData['api_token'];
+      if (apiToken is! String || apiToken.isEmpty) {
+        throw ApiException('The login response did not contain an API token.');
+      }
 
-//   super.onInit();
-//   }
+      await storage.write('api_token', apiToken);
+      final refreshToken = userData['refresh_token'];
+      if (refreshToken is String && refreshToken.isNotEmpty) {
+        await storage.write('refresh_token', refreshToken);
+      }
+      await storage.write('user_data', userData);
 
-//   Future<ResponseModel> login(String email, String password) async {
-//     isLoading = true;
-//     update();
-//     Response response = await authRepo.login(email, password);
-
-//     ResponseModel responseModel;
-
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         await DBManager().saveUserData(response);
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> signup(
-
-//     String email,
-//     String password,
-
-//   ) async {
-//     isLoading = true;
-//     update();
-//     Response response =
-//         await authRepo.signup(email, password, fistName!, lastName!, phone!);
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> verification(
-//     String code,
-//     String userId,
-//   ) async {
-//     isLoading = true;
-//     update();
-//     Response response = await authRepo.validateCode(
-//       code,
-//       userId,
-//     );
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         await DBManager().saveUserData(response);
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> checkEmail(
-//     String email,
-//   ) async {
-//     isLoading = true;
-//     update();
-//     Response response = await authRepo.checkEmail(
-//       email,
-//     );
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> customApi(
-//     String userId,
-//   ) async {
-//     Response response = await authRepo.generalApi(
-//       userId,
-//     );
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         await DBManager().saveCustomApi(response);
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> sendCode(
-//     String code,
-//   ) async {
-//     Response response = await authRepo.sendCode(code);
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> validateCode(
-//     String code,
-//   ) async {
-//     isLoading = true;
-//     update();
-//     Response response = await authRepo.verifyCode(code);
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         // verifyCodeID=response.body['data'].toString();
-//         // print("=====response.body:$verifyCodeID==========");
-//         responseModel = ResponseModel(true, response.body['data'].toString());
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> createPassword(String password, String toke) async {
-//     isLoading = true;
-//     update();
-//     Response response = await authRepo.createPassword(password, toke);
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-//   Future<ResponseModel> sendCodeForgotPassword(String email) async {
-//     isLoading = true;
-//     update();
-//     Response response = await authRepo.sendCodeToEmail(
-//       email,
-//     );
-//     ResponseModel responseModel;
-//     if (response.statusCode == 200) {
-//       if (!response.body["error"]) {
-//         responseModel = ResponseModel(true, response.body['message']);
-//       } else {
-//         responseModel = ResponseModel(false, response.body['message']);
-//       }
-//     } else {
-//       responseModel = ResponseModel(false, response.statusText.toString());
-//     }
-//     isLoading = false;
-//     update();
-//     return responseModel;
-//   }
-
-// }
+      return true;
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      return false;
+    } finally {
+      isLoading = false;
+      update();
+    }
+  }
+}
