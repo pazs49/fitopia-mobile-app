@@ -49,3 +49,6 @@ app.*.map.json
 **/*.keystore
 *.env
 !handover/config.example.env
+
+# FVM Version Cache
+.fvm/

@@ -157,7 +157,7 @@ class LineChartSample7 extends StatelessWidget {
                 isCurved: true,
                 barWidth: 2,
                 color: line1Color,
-                dotData: const FlDotData(
+                dotData: FlDotData(
                   show: false,
                 ),
               ),
@@ -179,7 +179,7 @@ class LineChartSample7 extends StatelessWidget {
                 isCurved: false,
                 barWidth: 2,
                 color: line2Color,
-                dotData: const FlDotData(
+                dotData: FlDotData(
                   show: false,
                 ),
               ),
@@ -211,10 +211,10 @@ class LineChartSample7 extends StatelessWidget {
                   reservedSize: 36,
                 ),
               ),
-              topTitles: const AxisTitles(
+              topTitles: AxisTitles(
                 sideTitles: SideTitles(showTitles: false),
               ),
-              rightTitles: const AxisTitles(
+              rightTitles: AxisTitles(
                 sideTitles: SideTitles(showTitles: false),
               ),
             ),

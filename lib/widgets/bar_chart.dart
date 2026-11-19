@@ -138,10 +138,10 @@ class BarChartSample2State extends State<BarChartSample2> {
                   ),
                   titlesData: FlTitlesData(
                     show: true,
-                    rightTitles: const AxisTitles(
+                    rightTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
-                    topTitles: const AxisTitles(
+                    topTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
                     ),
                     bottomTitles: AxisTitles(
@@ -164,7 +164,7 @@ class BarChartSample2State extends State<BarChartSample2> {
                     show: false,
                   ),
                   barGroups: showingBarGroups,
-                  gridData: const FlGridData(show: false),
+                  gridData: FlGridData(show: false),
                 ),
               ),
             ),
