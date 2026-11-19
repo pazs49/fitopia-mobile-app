@@ -62,6 +62,21 @@ class DashboardRepo {
     });
   }
 
+  Future<void> toggleMeal(DashboardMeal meal) async {
+    final userData = GetStorage().read('user_data');
+    final userId = userData is Map ? userData['id'] : null;
+    if (userId == null || meal.id == 0) {
+      throw ApiException('The meal or user information is unavailable.');
+    }
+
+    await apiClient.postAuthenticatedData('api/todaymeal_toggle', {
+      'meal_id': meal.id,
+      'user_id': userId,
+      'meal_date': DateTime.now().toIso8601String().split('T').first,
+      'meal_desc': meal.category.toLowerCase(),
+    });
+  }
+
   Future<Set<int>> getLoggedMealIds(DateTime date) async {
     final dateText = date.toIso8601String().split('T').first;
     final response =
@@ -76,6 +91,31 @@ class DashboardRepo {
         .map((item) => int.tryParse(item['id']?.toString() ?? ''))
         .whereType<int>()
         .toSet();
+  }
+
+  Future<void> completeWorkout(DashboardWorkout workout) async {
+    final assignmentId = workout.assignmentId;
+    if (assignmentId == null) {
+      throw ApiException('The workout assignment information is unavailable.');
+    }
+
+    await apiClient.postAuthenticatedData('api/ai-workouts/mark-completed', {
+      'workout_assignment_id': assignmentId,
+    });
+  }
+
+  Future<void> toggleWorkout(DashboardWorkout workout) async {
+    final assignmentId = workout.assignmentId;
+    if (assignmentId == null) {
+      throw ApiException('The workout assignment information is unavailable.');
+    }
+
+    await apiClient.postAuthenticatedData(
+      workout.completed
+          ? 'api/ai-workouts/unmark-completed'
+          : 'api/ai-workouts/mark-completed',
+      {'workout_assignment_id': assignmentId},
+    );
   }
 
   Future<DashboardNutrition> getNutrition() async {
@@ -99,7 +139,11 @@ class DashboardRepo {
             ? 'api/assign-diet-list'
             : 'api/assign-diet-list?date=$dateText',
       ),
-      apiClient.getData('api/assign-workout-list'),
+      apiClient.getData(
+        dateText == null
+            ? 'api/assign-workout-list'
+            : 'api/assign-workout-list?date=$dateText',
+      ),
     ]);
 
     final dashboardData = _mapData(responses[0]);
@@ -108,8 +152,45 @@ class DashboardRepo {
     if (rawWorkout is Map) {
       final workoutData = rawWorkout['workout'];
       if (workoutData is Map) {
-        workout =
-            DashboardWorkout.fromJson(Map<String, dynamic>.from(workoutData));
+        final workoutJson = Map<String, dynamic>.from(workoutData);
+        workoutJson['assignment_id'] = rawWorkout['id'];
+        workoutJson['status'] = rawWorkout['status'];
+        workoutJson['completed_at'] = rawWorkout['completed_at'];
+        workout = DashboardWorkout.fromJson(workoutJson);
+      }
+    }
+
+    if (workout == null) {
+      final todayWorkoutResponse =
+          await apiClient.getData('api/ai-workouts/today');
+      final todayWorkoutData = todayWorkoutResponse['data'];
+      if (todayWorkoutData is Map) {
+        final workoutData = todayWorkoutData['workout'];
+        if (workoutData is Map) {
+          final workoutJson = Map<String, dynamic>.from(workoutData);
+          workoutJson['assignment_id'] = todayWorkoutData['id'];
+          workoutJson['status'] = todayWorkoutData['status'];
+          workoutJson['completed_at'] = todayWorkoutData['completed_at'];
+          workout = DashboardWorkout.fromJson(workoutJson);
+        }
+      }
+    }
+
+    if (workout == null && dateText != null) {
+      final rangeResponse = await apiClient.getData(
+        'api/ai-workouts/date-range?start_date=$dateText&end_date=$dateText',
+      );
+      final rangeData = rangeResponse['data'];
+      if (rangeData is List && rangeData.isNotEmpty) {
+        final assignment = rangeData.first;
+        if (assignment is Map && assignment['workout'] is Map) {
+          final workoutJson =
+              Map<String, dynamic>.from(assignment['workout'] as Map);
+          workoutJson['assignment_id'] = assignment['id'];
+          workoutJson['status'] = assignment['status'];
+          workoutJson['completed_at'] = assignment['completed_at'];
+          workout = DashboardWorkout.fromJson(workoutJson);
+        }
       }
     }
 

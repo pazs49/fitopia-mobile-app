@@ -157,10 +157,8 @@ class _DashboardViewState extends State<DashboardView> {
     );
   }
 
-  Future<void> _logMeal(DashboardMeal meal) async {
-    if (meal.id == 0 ||
-        _loggedMealIds.contains(meal.id) ||
-        _loggingMealIds.contains(meal.id)) {
+  Future<void> _toggleMeal(DashboardMeal meal) async {
+    if (meal.id == 0 || _loggingMealIds.contains(meal.id)) {
       return;
     }
 
@@ -169,14 +167,19 @@ class _DashboardViewState extends State<DashboardView> {
     });
 
     try {
-      await _dashboardRepo.logMeal(meal);
+      final wasLogged = _loggedMealIds.contains(meal.id);
+      await _dashboardRepo.toggleMeal(meal);
       if (!mounted) {
         return;
       }
 
       setState(() {
         _loggingMealIds.remove(meal.id);
-        _loggedMealIds.add(meal.id);
+        if (wasLogged) {
+          _loggedMealIds.remove(meal.id);
+        } else {
+          _loggedMealIds.add(meal.id);
+        }
       });
 
       await Future.wait<void>([
@@ -184,7 +187,13 @@ class _DashboardViewState extends State<DashboardView> {
         _loadWeeklyCalories(),
       ]);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${meal.title} marked as eaten.')),
+        SnackBar(
+          content: Text(
+            wasLogged
+                ? '${meal.title} marked as not eaten.'
+                : '${meal.title} marked as eaten.',
+          ),
+        ),
       );
     } on ApiException catch (error) {
       _redirectIfSessionExpired(error);
@@ -194,6 +203,33 @@ class _DashboardViewState extends State<DashboardView> {
       setState(() {
         _loggingMealIds.remove(meal.id);
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<void> _toggleWorkout(DashboardWorkout workout) async {
+    try {
+      await _dashboardRepo.toggleWorkout(workout);
+      await _loadContent(selectedDate: _selectedDate);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            workout.completed
+                ? 'Workout completion was undone.'
+                : 'Workout marked as completed.',
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      _redirectIfSessionExpired(error);
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
       );
@@ -422,14 +458,34 @@ class _DashboardViewState extends State<DashboardView> {
           : _contentMessage(_contentError!, _loadContent);
     }
 
-    return ProductCardWidget(
-      index: 0,
-      title: workout.type.isEmpty
-          ? (workout.level.isEmpty ? 'Workout' : workout.level)
-          : workout.type,
-      subtile: workout.title,
-      des: workout.description,
-      imagepath: ImageAssets.workoutImage1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        ProductCardWidget(
+          index: 0,
+          title: workout.type.isEmpty
+              ? (workout.level.isEmpty ? 'Workout' : workout.level)
+              : workout.type,
+          subtile: workout.title,
+          des: workout.description,
+          imagepath: ImageAssets.workoutImage1,
+        ),
+        TextButton.icon(
+          onPressed: workout.assignmentId == null || !_isSelectedDateToday
+              ? null
+              : () => _toggleWorkout(workout),
+          icon: Icon(
+            workout.completed ? Icons.undo : Icons.check_circle_outline,
+          ),
+          label: Text(
+            workout.completed
+                ? 'Undo complete'
+                : workout.assignmentId == null
+                    ? 'Unavailable'
+                    : 'Mark complete',
+          ),
+        ),
+      ],
     );
   }
 
@@ -479,18 +535,17 @@ class _DashboardViewState extends State<DashboardView> {
               TextButton.icon(
                 onPressed: _selectedDayLoading ||
                         !_isSelectedDateToday ||
-                        _loggedMealIds.contains(meal.id) ||
                         _loggingMealIds.contains(meal.id)
                     ? null
-                    : () => _logMeal(meal),
+                    : () => _toggleMeal(meal),
                 icon: Icon(
                   _loggedMealIds.contains(meal.id)
-                      ? Icons.check_circle
+                      ? Icons.undo
                       : Icons.check_circle_outline,
                 ),
                 label: Text(
                   _loggedMealIds.contains(meal.id)
-                      ? 'Eaten'
+                      ? 'Undo eaten'
                       : _selectedDayLoading
                           ? 'Loading...'
                           : !_isSelectedDateToday
