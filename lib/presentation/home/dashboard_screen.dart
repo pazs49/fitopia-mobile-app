@@ -249,7 +249,8 @@ class _DashboardViewState extends State<DashboardView> {
           ..clear()
           ..addAll(loggedMealIds);
       });
-    } on ApiException {
+    } on ApiException catch (error) {
+      _redirectIfSessionExpired(error);
       // The meal list remains usable if the optional status lookup fails.
     }
   }

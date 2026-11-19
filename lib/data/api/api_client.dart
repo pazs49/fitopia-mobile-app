@@ -53,7 +53,11 @@ class ApiClient {
           await _clearExpiredSession();
         }
         throw ApiException(
-          _messageFrom(decodedBody, 'The request failed.'),
+          _messageFromResponse(
+            response.statusCode,
+            decodedBody,
+            'The request failed.',
+          ),
           statusCode: response.statusCode,
         );
       }
@@ -88,7 +92,11 @@ class ApiClient {
           await _clearExpiredSession();
         }
         throw ApiException(
-          _messageFrom(decodedBody, 'The request failed.'),
+          _messageFromResponse(
+            response.statusCode,
+            decodedBody,
+            'The request failed.',
+          ),
           statusCode: response.statusCode,
         );
       }
@@ -123,8 +131,15 @@ class ApiClient {
 
       final decodedBody = _decodeBody(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 401) {
+          await _clearExpiredSession();
+        }
         throw ApiException(
-          _messageFrom(decodedBody, 'The request failed.'),
+          _messageFromResponse(
+            response.statusCode,
+            decodedBody,
+            'The request failed.',
+          ),
           statusCode: response.statusCode,
         );
       }
@@ -190,5 +205,17 @@ class ApiClient {
 
     final message = body['message'];
     return message is String && message.isNotEmpty ? message : fallback;
+  }
+
+  String _messageFromResponse(
+    int statusCode,
+    Map<String, dynamic> body,
+    String fallback,
+  ) {
+    if (statusCode == 429) {
+      return 'Too many requests. Please wait a moment and try again.';
+    }
+
+    return _messageFrom(body, fallback);
   }
 }
