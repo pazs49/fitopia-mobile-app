@@ -293,28 +293,49 @@ class _ReceipeListViewState extends State<ReceipeListView> {
 
   Widget _recipeImage(Recipe recipe) {
     if (recipe.image.isEmpty) {
-      return Container(
-        color: ColorManager.primary.withOpacity(.10),
-        child: Center(
-            child: Icon(Icons.restaurant_menu,
-                size: 42, color: ColorManager.primary)),
-      );
+      return _placeholderImage();
     }
     return Image.network(
       _imageUrl(recipe.image),
       fit: BoxFit.cover,
       width: double.infinity,
-      errorBuilder: (_, __, ___) => Container(
-        color: ColorManager.primary.withOpacity(.10),
-        child: Icon(Icons.restaurant_menu, color: ColorManager.primary),
-      ),
+      errorBuilder: (_, __, ___) => _placeholderImage(),
     );
   }
 
   String _imageUrl(String value) {
     final uri = Uri.tryParse(value);
-    if (uri?.hasScheme == true) return value;
-    return Uri.parse(AppStrings.appBaseUrl).resolve(value).toString();
+    if (uri == null) return _defaultImageUrl();
+
+    final base = Uri.parse(AppStrings.appBaseUrl);
+    if (uri.host == '127.0.0.1' || uri.host == 'localhost') {
+      return uri
+          .replace(
+            scheme: base.scheme,
+            host: base.host,
+            port: base.hasPort ? base.port : null,
+          )
+          .toString();
+    }
+    return uri.hasScheme ? value : base.resolve(value).toString();
+  }
+
+  String _defaultImageUrl() =>
+      Uri.parse(AppStrings.appBaseUrl).resolve('images/default.png').toString();
+
+  Widget _placeholderImage() {
+    return Image.network(
+      _defaultImageUrl(),
+      fit: BoxFit.cover,
+      width: double.infinity,
+      errorBuilder: (_, __, ___) => Container(
+        color: Colors.grey.shade100,
+        child: Center(
+          child: Icon(Icons.image_not_supported_outlined,
+              size: 42, color: Colors.grey.shade400),
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleFavourite(Recipe recipe) async {
