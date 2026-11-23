@@ -23,7 +23,17 @@ class _MyProgramViewState extends State<MyProgramView> {
     _programsFuture = _loadPrograms();
   }
 
-  Future<List<MyProgram>> _loadPrograms() => _programRepo.getPrograms();
+  Future<List<MyProgram>> _loadPrograms() async {
+    final programs = await _programRepo.getPrograms();
+    final today = _dateKey(DateTime.now());
+    final todayIndex = programs.indexWhere(
+      (program) => _dateKey(DateTime.tryParse(program.assignedDate)) == today,
+    );
+    if (todayIndex >= 0) {
+      _selectedDay = todayIndex;
+    }
+    return programs;
+  }
 
   Future<void> _refresh() async {
     final future = _loadPrograms();
@@ -221,6 +231,13 @@ class _MyProgramViewState extends State<MyProgramView> {
             'Fri',
             'Sat'
           ][date.weekday % 7];
+  }
+
+  String _dateKey(DateTime? date) {
+    if (date == null) return '';
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
   }
 
   String _dateLabel(String value) {

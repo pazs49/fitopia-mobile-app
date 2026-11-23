@@ -69,11 +69,12 @@ class RecipeRepo {
   Future<void> addToMealPlan({
     required Recipe recipe,
     required String category,
+    required DateTime date,
   }) async {
     await apiClient.postAuthenticatedData('api/meal-plans/add', {
       'diet_id': recipe.id,
       'meal_category': category,
-      'assign_date': DateTime.now().toIso8601String().split('T').first,
+      'assign_date': date.toIso8601String().split('T').first,
     });
   }
 

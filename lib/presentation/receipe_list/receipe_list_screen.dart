@@ -370,6 +370,7 @@ class _ReceipeListViewState extends State<ReceipeListView> {
     if (!mounted) return;
 
     var selectedCategory = _mealCategory ?? 'breakfast';
+    var selectedDate = DateTime.now();
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -400,10 +401,28 @@ class _ReceipeListViewState extends State<ReceipeListView> {
                   const Text('Ingredients',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  Text(detail.recipe.ingredients),
+                  Text(_formatIngredients(detail.recipe.ingredients)),
                 ],
                 const SizedBox(height: 18),
-                const Text('Add to today’s meal plan',
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_today),
+                  title: const Text('Meal plan date'),
+                  subtitle: Text(_formatDate(selectedDate)),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 30)),
+                    );
+                    if (date != null) {
+                      setSheetState(() => selectedDate = date);
+                    }
+                  },
+                ),
+                const Text('Add to meal plan',
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 DropdownButton<String>(
                   value: selectedCategory,
@@ -429,6 +448,7 @@ class _ReceipeListViewState extends State<ReceipeListView> {
                         await _repo.addToMealPlan(
                           recipe: detail.recipe,
                           category: selectedCategory,
+                          date: selectedDate,
                         );
                         if (context.mounted) {
                           Navigator.pop(context);
@@ -467,6 +487,38 @@ class _ReceipeListViewState extends State<ReceipeListView> {
           ],
         ),
       );
+
+  String _formatIngredients(String value) {
+    return value
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    final today = DateTime.now();
+    final isToday = today.year == date.year &&
+        today.month == date.month &&
+        today.day == date.day;
+    return isToday
+        ? 'Today, ${months[date.month - 1]} ${date.day}'
+        : '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
 }
 
 class _MessageState extends StatelessWidget {
