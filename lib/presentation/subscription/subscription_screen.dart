@@ -36,6 +36,15 @@ class _SubscriptionViewState extends State<SubscriptionView> {
       if (!mounted) {
         return;
       }
+      if (packages.isEmpty) {
+        setState(() {
+          _packages = <SubscriptionModel>[];
+          _isLoading = false;
+          _errorMessage =
+              'No subscription packages are available. Please try again.';
+        });
+        return;
+      }
       setState(() {
         _packages = packages;
         _isLoading = false;

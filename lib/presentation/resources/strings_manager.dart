@@ -46,10 +46,9 @@ class AppStrings {
   static const String settings = "Settings";
   static const String nutrition = "Nutrition";
   static const String myProfile = "My Profile";
-  static const String myPrograms = "My Programs";
+  static const String myPrograms = "My Workout Plan";
   static const String recipeList = "Recipe List";
   static const String myMealPlans = "My Meal Plans";
-  static const String workoutRoutine = "Workout Routine";
   static const String loremipsum3lines =
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore";
 }

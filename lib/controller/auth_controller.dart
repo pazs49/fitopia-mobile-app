@@ -59,6 +59,55 @@ class AuthController extends GetxController {
     }
   }
 
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String firstName,
+    required String lastName,
+  }) async {
+    isLoading = true;
+    errorMessage = null;
+    update();
+
+    try {
+      final response = await authRepo.register(
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      final rawData = response['data'];
+
+      if (rawData is! Map) {
+        throw ApiException(
+            'The registration response did not contain user data.');
+      }
+
+      final userData = Map<String, dynamic>.from(rawData);
+      final apiToken = userData['api_token'] ?? response['api_token'];
+      if (apiToken is! String || apiToken.isEmpty) {
+        throw ApiException(
+            'The registration response did not contain an API token.');
+      }
+
+      await storage.write('api_token', apiToken);
+      final refreshToken =
+          userData['refresh_token'] ?? response['refresh_token'];
+      if (refreshToken is String && refreshToken.isNotEmpty) {
+        await storage.write('refresh_token', refreshToken);
+      }
+      await storage.write('user_data', userData);
+
+      return true;
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      return false;
+    } finally {
+      isLoading = false;
+      update();
+    }
+  }
+
   Future<String?> logout() async {
     String? logoutError;
     try {

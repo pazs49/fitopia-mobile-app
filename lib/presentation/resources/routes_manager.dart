@@ -21,6 +21,8 @@ import 'package:fitopia/presentation/signup/signup_screen.dart';
 import 'package:fitopia/presentation/splash/splash_screen.dart';
 import 'package:fitopia/presentation/subscription/subscription_screen.dart';
 import 'package:fitopia/presentation/workout_routine/workout_routine_screen.dart';
+import 'package:fitopia/presentation/workout_detail/workout_detail_screen.dart';
+import 'package:fitopia/model/dashboard_content_model.dart';
 import 'package:flutter/material.dart';
 
 class Routes {
@@ -42,6 +44,7 @@ class Routes {
   static const String myProgramPageRoute = "/myProgramView";
   static const String myMealsPlansPageRoute = "/myMealsPlansView";
   static const String workoutRoutinePageRoute = "/workoutRoutineView";
+  static const String workoutDetailPageRoute = "/workoutDetail";
   static const String nutritionPageRoute = "/nutritionView";
   static const String ebookPageRoute = "/ebookView";
   static const String helpPageRoute = "/helpView";
@@ -91,6 +94,13 @@ class RouteGenerator {
         return MaterialPageRoute(builder: (_) => ReceipeListView());
       case Routes.workoutRoutinePageRoute:
         return MaterialPageRoute(builder: (_) => WorkoutRoutineView());
+      case Routes.workoutDetailPageRoute:
+        final workout = routeSettings.arguments;
+        if (workout is DashboardWorkout) {
+          return MaterialPageRoute(
+              builder: (_) => WorkoutDetailScreen(workout: workout));
+        }
+        return unDefinedRoute();
       case Routes.nutritionPageRoute:
         return MaterialPageRoute(builder: (_) => NutritionView());
       case Routes.ebookPageRoute:

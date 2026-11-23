@@ -61,6 +61,7 @@ class DashboardRepo {
 
     await apiClient.postAuthenticatedData('api/todaymeal_create', {
       'meal_id': meal.id,
+      if (meal.assignmentId != null) 'assignment_id': meal.assignmentId,
       'user_id': userId,
       'meal_date': DateTime.now().toIso8601String().split('T').first,
       'meal_desc': meal.category.toLowerCase(),
@@ -76,13 +77,14 @@ class DashboardRepo {
 
     await apiClient.postAuthenticatedData('api/todaymeal_toggle', {
       'meal_id': meal.id,
+      if (meal.assignmentId != null) 'assignment_id': meal.assignmentId,
       'user_id': userId,
       'meal_date': DateTime.now().toIso8601String().split('T').first,
       'meal_desc': meal.category.toLowerCase(),
     });
   }
 
-  Future<Set<int>> getLoggedMealIds(DateTime date) async {
+  Future<Set<String>> getLoggedMealKeys(DateTime date) async {
     final dateText = date.toIso8601String().split('T').first;
     final response =
         await apiClient.getData('api/todaymeal_view?date=$dateText');
@@ -94,8 +96,8 @@ class DashboardRepo {
     return data
         .whereType<Map>()
         .where((item) => item['is_eaten'] == true || item['is_eaten'] == 1)
-        .map((item) => int.tryParse(item['id']?.toString() ?? ''))
-        .whereType<int>()
+        .map((item) =>
+            '${item['assignment_id'] ?? '${item['id']}:${item['category']?.toString().toLowerCase()}'}')
         .toSet();
   }
 

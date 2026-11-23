@@ -46,7 +46,10 @@ class _ReceipeListViewState extends State<ReceipeListView> {
   }
 
   void _applyFilters() {
-    setState(() => _recipesFuture = _loadRecipes());
+    final recipes = _loadRecipes();
+    setState(() {
+      _recipesFuture = recipes;
+    });
   }
 
   Future<void> _refresh() async {

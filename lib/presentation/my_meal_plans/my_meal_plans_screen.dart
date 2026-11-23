@@ -32,7 +32,11 @@ class _MyMealsPlanViewState extends State<MyMealsPlanView> {
       if (!mounted) return;
       setState(() {
         _plan = plan;
-        if (_selectedDay >= plan.days.length) _selectedDay = 0;
+        final today = DateTime.now().toIso8601String().split('T').first;
+        final todayIndex = plan.days.indexWhere((day) => day.date == today);
+        _selectedDay = todayIndex >= 0
+            ? todayIndex
+            : (_selectedDay < plan.days.length ? _selectedDay : 0);
       });
     } on ApiException catch (error) {
       if (mounted) setState(() => _error = error.message);

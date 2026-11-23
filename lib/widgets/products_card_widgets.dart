@@ -9,6 +9,7 @@ class ProductCardWidget extends StatelessWidget {
   final String subtile;
   final String des;
   final String imagepath;
+  final VoidCallback? onTap;
 
   ProductCardWidget({
     Key? key,
@@ -17,14 +18,13 @@ class ProductCardWidget extends StatelessWidget {
     this.subtile = "",
     this.des = "",
     this.imagepath = "",
+    this.onTap,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // Navigator.pushNamed(context, 'HouseDetails');
-      },
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.only(left: 5.0, bottom: 10.0, top: 5.0),
         child: Container(

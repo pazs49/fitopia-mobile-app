@@ -2,13 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:fitopia/model/deshboard_model.dart';
 import 'package:fitopia/model/dashboard_nutrition_model.dart';
 import 'package:fitopia/data/api/api_client.dart';
 import 'package:fitopia/data/repository/dashboard_repo.dart';
 import 'package:fitopia/model/dashboard_content_model.dart';
-import 'package:fitopia/translations/locale_keys.g.dart';
 import 'package:fitopia/widgets/line_cahrt_sample7.dart';
 import 'package:fitopia/widgets/products_card_widgets.dart';
 import 'package:fitopia/widgets/week_days_list.dart';
@@ -36,8 +34,8 @@ class _DashboardViewState extends State<DashboardView> {
   DashboardContent? _content;
   String? _contentError;
   DashboardWeeklyCalories? _weeklyCalories;
-  final Set<int> _loggedMealIds = <int>{};
-  final Set<int> _loggingMealIds = <int>{};
+  final Set<String> _loggedMealKeys = <String>{};
+  final Set<String> _loggingMealKeys = <String>{};
   bool _redirectingToLogin = false;
   bool _selectedDayLoading = true;
   Timer? _selectedDayLoadDebounce;
@@ -71,7 +69,7 @@ class _DashboardViewState extends State<DashboardView> {
     setState(() {
       _selectedDayLoading = true;
       _content = null;
-      _loggedMealIds.clear();
+      _loggedMealKeys.clear();
     });
 
     await Future.wait<void>([
@@ -121,12 +119,15 @@ class _DashboardViewState extends State<DashboardView> {
       setState(() {
         _content = content;
         _contentError = null;
-        _loggedMealIds
+        _loggedMealKeys
           ..removeWhere(
-            (id) => !content.meals.any((meal) => meal.id == id && meal.logged),
+            (key) => !content.meals
+                .any((meal) => meal.trackingKey == key && meal.logged),
           )
           ..addAll(
-            content.meals.where((meal) => meal.logged).map((meal) => meal.id),
+            content.meals
+                .where((meal) => meal.logged)
+                .map((meal) => meal.trackingKey),
           );
       });
     } on ApiException catch (error) {
@@ -181,27 +182,28 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Future<void> _toggleMeal(DashboardMeal meal) async {
-    if (meal.id == 0 || _loggingMealIds.contains(meal.id)) {
+    final mealKey = meal.trackingKey;
+    if (meal.id == 0 || _loggingMealKeys.contains(mealKey)) {
       return;
     }
 
     setState(() {
-      _loggingMealIds.add(meal.id);
+      _loggingMealKeys.add(mealKey);
     });
 
     try {
-      final wasLogged = _loggedMealIds.contains(meal.id);
+      final wasLogged = _loggedMealKeys.contains(mealKey);
       await _dashboardRepo.toggleMeal(meal);
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _loggingMealIds.remove(meal.id);
+        _loggingMealKeys.remove(mealKey);
         if (wasLogged) {
-          _loggedMealIds.remove(meal.id);
+          _loggedMealKeys.remove(mealKey);
         } else {
-          _loggedMealIds.add(meal.id);
+          _loggedMealKeys.add(mealKey);
         }
       });
 
@@ -224,7 +226,7 @@ class _DashboardViewState extends State<DashboardView> {
         return;
       }
       setState(() {
-        _loggingMealIds.remove(meal.id);
+        _loggingMealKeys.remove(mealKey);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.message)),
@@ -261,16 +263,16 @@ class _DashboardViewState extends State<DashboardView> {
 
   Future<void> _loadLoggedMeals() async {
     try {
-      final loggedMealIds =
-          await _dashboardRepo.getLoggedMealIds(_selectedDate);
+      final loggedMealKeys =
+          await _dashboardRepo.getLoggedMealKeys(_selectedDate);
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _loggedMealIds
+        _loggedMealKeys
           ..clear()
-          ..addAll(loggedMealIds);
+          ..addAll(loggedMealKeys);
       });
     } on ApiException catch (error) {
       _redirectIfSessionExpired(error);
@@ -404,25 +406,9 @@ class _DashboardViewState extends State<DashboardView> {
           scrollDirection: Axis.horizontal,
           controller: _controller,
           children: List.generate(
-            4,
+            2,
             ((index) {
-              return index == 0
-                  ? calories()
-                  : index == 1
-                      ? Macros()
-                      : index == 2
-                          ? progressbar(
-                              LocaleKeys.LowCarb.tr(),
-                              LocaleKeys.Carbohydrates.tr(),
-                              "60/260g",
-                              LocaleKeys.Sugar.tr(),
-                              "55/260g",
-                              LocaleKeys.Fiber.tr(),
-                              "25/38g")
-                          : index == 3
-                              ? progressbar("Heart Healthy", "Fat", "0/68g",
-                                  "Sodium", "0/2300mg", "Choesterol", "0/300mg")
-                              : SizedBox();
+              return index == 0 ? calories() : Macros();
             }),
           ),
         ),
@@ -555,53 +541,214 @@ class _DashboardViewState extends State<DashboardView> {
       );
     }
 
+    final groupedMeals = <String, List<DashboardMeal>>{};
+    for (final meal in meals) {
+      final category = _mealCategoryKey(meal.category);
+      groupedMeals.putIfAbsent(category, () => <DashboardMeal>[]).add(meal);
+    }
+
+    const categoryOrder = ['breakfast', 'lunch', 'dinner', 'snacks', 'other'];
+    final groups = categoryOrder
+        .where(groupedMeals.containsKey)
+        .map((category) => MapEntry(category, groupedMeals[category]!))
+        .toList();
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 7.0),
-      child: ListView.builder(
-        // scrollDirection: Axis.vertical,
-        itemCount: meals.length,
-        shrinkWrap: true,
-        physics: NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) {
-          final meal = meals[index];
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Column(
+        children: [
+          for (var index = 0; index < groups.length; index++)
+            _mealGroup(groups[index].key, groups[index].value,
+                initiallyExpanded: index == 0),
+        ],
+      ),
+    );
+  }
+
+  Widget _mealGroup(
+    String category,
+    List<DashboardMeal> meals, {
+    required bool initiallyExpanded,
+  }) {
+    final calories = meals.fold<double>(
+      0,
+      (total, meal) => total + meal.calories,
+    );
+    final eatenCount = meals
+        .where((meal) => _loggedMealKeys.contains(meal.trackingKey))
+        .length;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: initiallyExpanded,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        leading: CircleAvatar(
+          backgroundColor: ColorManager.primary.withOpacity(.12),
+          child: Icon(_mealCategoryIcon(category), color: ColorManager.primary),
+        ),
+        title: Text(
+          _mealCategoryLabel(category),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          '${meals.length} ${meals.length == 1 ? 'meal' : 'meals'}'
+          ' • ${calories.toStringAsFixed(0)} kcal'
+          '${eatenCount == meals.length ? ' • Complete' : ''}',
+          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+        ),
+        children: meals.map(_mealCard).toList(),
+      ),
+    );
+  }
+
+  Widget _mealCard(DashboardMeal meal) {
+    final mealKey = meal.trackingKey;
+    final isLogged = _loggedMealKeys.contains(mealKey);
+    final isSaving = _loggingMealKeys.contains(mealKey);
+    final canToggle = _isSelectedDateToday && !isSaving;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isLogged ? Colors.green.withOpacity(.06) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              isLogged ? Colors.green.withOpacity(.35) : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ProductCardWidget(
-                index: index,
-                title: meal.category,
-                subtile: meal.title,
-                des: _mealDescription(meal),
-                imagepath: _mealImage(index),
-              ),
-              TextButton.icon(
-                onPressed: _selectedDayLoading ||
-                        !_isSelectedDateToday ||
-                        _loggingMealIds.contains(meal.id)
-                    ? null
-                    : () => _toggleMeal(meal),
-                icon: Icon(
-                  _loggedMealIds.contains(meal.id)
-                      ? Icons.undo
-                      : Icons.check_circle_outline,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  _mealImage(meal.id),
+                  width: 82,
+                  height: 72,
+                  fit: BoxFit.cover,
                 ),
-                label: Text(
-                  _loggedMealIds.contains(meal.id)
-                      ? 'Undo eaten'
-                      : _selectedDayLoading
-                          ? 'Loading...'
-                          : !_isSelectedDateToday
-                              ? 'Available today'
-                              : _loggingMealIds.contains(meal.id)
-                                  ? 'Saving...'
-                                  : 'Mark as eaten',
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meal.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meal.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              _nutritionChip('${meal.calories.toStringAsFixed(0)} kcal'),
+              _nutritionChip('P ${meal.protein.toStringAsFixed(0)}g'),
+              _nutritionChip('C ${meal.carbs.toStringAsFixed(0)}g'),
+              _nutritionChip('F ${meal.fat.toStringAsFixed(0)}g'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: canToggle ? () => _toggleMeal(meal) : null,
+              style: TextButton.styleFrom(
+                foregroundColor:
+                    isLogged ? Colors.green.shade700 : ColorManager.primary,
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: Icon(
+                isLogged ? Icons.check_circle : Icons.radio_button_unchecked,
+                size: 19,
+              ),
+              label: Text(
+                isLogged
+                    ? 'Undo eaten'
+                    : isSaving
+                        ? 'Saving...'
+                        : _isSelectedDateToday
+                            ? 'Mark as eaten'
+                            : 'Available today',
+              ),
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _nutritionChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+            color: Colors.grey.shade700,
+            fontSize: 11,
+            fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  String _mealCategoryKey(String category) {
+    final normalized = category.trim().toLowerCase();
+    return const ['breakfast', 'lunch', 'dinner', 'snacks'].contains(normalized)
+        ? normalized
+        : 'other';
+  }
+
+  String _mealCategoryLabel(String category) {
+    if (category == 'snacks') return 'Snacks';
+    if (category == 'other') return 'Other meals';
+    return category[0].toUpperCase() + category.substring(1);
+  }
+
+  IconData _mealCategoryIcon(String category) {
+    switch (category) {
+      case 'breakfast':
+        return Icons.free_breakfast;
+      case 'lunch':
+        return Icons.lunch_dining;
+      case 'dinner':
+        return Icons.dinner_dining;
+      case 'snacks':
+        return Icons.cookie;
+      default:
+        return Icons.restaurant;
+    }
   }
 
   Widget _contentMessage(String message, VoidCallback retry) {
@@ -912,7 +1059,7 @@ class _DashboardViewState extends State<DashboardView> {
       alignment: Alignment.center,
       child: SmoothPageIndicator(
           controller: _controller,
-          count: 4,
+          count: 2,
           // effect: SlideEffect,
           effect: SlideEffect(
             spacing: 8.0,

@@ -62,10 +62,12 @@ class DashboardWeeklyCalories {
         }
 
         final categories = Map<dynamic, dynamic>.from(entry.value as Map);
-        final total = categories.values.fold<double>(
-          0,
-          (sum, value) => sum + _number(value),
-        );
+        final total = categories.containsKey('total_calories')
+            ? _number(categories['total_calories'])
+            : categories.values.fold<double>(
+                0,
+                (sum, value) => sum + _number(value),
+              );
         entries[DateTime(date.year, date.month, date.day)] = total;
       }
     }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fitopia/presentation/resources/index_manager.dart';
 import 'package:http/http.dart' as http;
@@ -47,8 +48,8 @@ class ApiClient {
           )
           .timeout(_timeout);
 
-      final decodedBody = _decodeBody(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        final decodedBody = _decodeErrorBody(response);
         if (response.statusCode == 401) {
           await _clearExpiredSession();
         }
@@ -62,7 +63,7 @@ class ApiClient {
         );
       }
 
-      return decodedBody;
+      return _decodeBody(response);
     } on ApiException {
       rethrow;
     } on TimeoutException {
@@ -86,8 +87,8 @@ class ApiClient {
           )
           .timeout(_timeout);
 
-      final decodedBody = _decodeBody(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        final decodedBody = _decodeErrorBody(response);
         if (response.statusCode == 401) {
           await _clearExpiredSession();
         }
@@ -101,7 +102,7 @@ class ApiClient {
         );
       }
 
-      return decodedBody;
+      return _decodeBody(response);
     } on ApiException {
       rethrow;
     } on TimeoutException {
@@ -156,6 +157,73 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> postAuthenticatedMultipart(
+    String path, {
+    required File file,
+    required String fieldName,
+  }) async {
+    final headers = _authenticatedHeaders()..remove('Content-Type');
+    final request = http.MultipartRequest('POST', _uri(path))
+      ..headers.addAll(headers)
+      ..files.add(await http.MultipartFile.fromPath(fieldName, file.path));
+
+    try {
+      final response = await http.Response.fromStream(
+        await request.send().timeout(_timeout),
+      );
+      final decodedBody = _decodeBody(response);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 401) {
+          await _clearExpiredSession();
+        }
+        throw ApiException(
+          _messageFromResponse(
+            response.statusCode,
+            decodedBody,
+            'The request failed.',
+          ),
+          statusCode: response.statusCode,
+        );
+      }
+
+      return decodedBody;
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException('The request timed out. Please try again.');
+    } on http.ClientException {
+      throw ApiException(
+        'Could not connect to the API. Check that the backend is running.',
+      );
+    }
+  }
+
+  Future<List<int>> getAuthenticatedBytes(String path) async {
+    try {
+      final response = await http
+          .get(_uri(path), headers: _authenticatedHeaders())
+          .timeout(_timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 401) {
+          await _clearExpiredSession();
+        }
+        throw ApiException(
+          'The export request failed.',
+          statusCode: response.statusCode,
+        );
+      }
+      return response.bodyBytes;
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw ApiException('The request timed out. Please try again.');
+    } on http.ClientException {
+      throw ApiException(
+        'Could not connect to the API. Check that the backend is running.',
+      );
+    }
+  }
+
   Map<String, String> _authenticatedHeaders() {
     final token = GetStorage().read<String>('api_token');
     if (token == null || token.isEmpty) {
@@ -195,6 +263,14 @@ class ApiClient {
       'The API returned an invalid response.',
       statusCode: response.statusCode,
     );
+  }
+
+  Map<String, dynamic> _decodeErrorBody(http.Response response) {
+    try {
+      return _decodeBody(response);
+    } on ApiException {
+      return <String, dynamic>{};
+    }
   }
 
   String _messageFrom(Map<String, dynamic> body, String fallback) {

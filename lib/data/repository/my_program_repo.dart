@@ -7,8 +7,9 @@ class MyProgramRepo {
   MyProgramRepo({required this.apiClient});
 
   Future<List<MyProgram>> getPrograms() async {
-    final startDate = DateTime.now();
-    final endDate = startDate.add(const Duration(days: 29));
+    final today = DateTime.now();
+    final startDate = today.subtract(const Duration(days: 7));
+    final endDate = today.add(const Duration(days: 29));
     final start = startDate.toIso8601String().split('T').first;
     final end = endDate.toIso8601String().split('T').first;
     final response = await apiClient.getData(

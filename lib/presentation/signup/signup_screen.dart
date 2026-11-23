@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:fitopia/controller/auth_controller.dart';
 import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:fitopia/translations/locale_keys.g.dart';
 import 'package:fitopia/widgets/app_logo_widget.dart';
@@ -21,8 +22,25 @@ class SignUp1 extends StatefulWidget {
 
 class _SignUp1State extends State<SignUp1> {
   bool rememberMe = false;
+  bool _isSubmitting = false;
   final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _authController = AuthController();
   int pageno = 0;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _authController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BackgroundImage(
@@ -38,7 +56,7 @@ class _SignUp1State extends State<SignUp1> {
                 AppLogoView(),
                 SizedBox(height: AppSize.s20.vs),
                 Text(
-                   LocaleKeys.createAnAccount.tr(),
+                  LocaleKeys.createAnAccount.tr(),
                   //AppStrings.createAnAccount,
                   style: getboldStyle(
                       color: ColorManager.blackColor, fontSize: AppSize.s20.mv),
@@ -57,8 +75,9 @@ class _SignUp1State extends State<SignUp1> {
 
                 SizedBox(height: 1.vs),
                 textspan(
-                  text1: LocaleKeys.alreadyHaveanAccount.tr(),//AppStrings.alreadyHaveanAccount,
-                  text2: LocaleKeys.signIn.tr(),//AppStrings.signIn,
+                  text1: LocaleKeys.alreadyHaveanAccount
+                      .tr(), //AppStrings.alreadyHaveanAccount,
+                  text2: LocaleKeys.signIn.tr(), //AppStrings.signIn,
                   onTap: () => Navigator.pushReplacementNamed(
                       context, Routes.loginRoute),
                 ),
@@ -80,7 +99,7 @@ class _SignUp1State extends State<SignUp1> {
           child: Align(
             alignment: Alignment.topLeft,
             child: Text(
-               LocaleKeys.whatsYourEmail.tr(),
+              LocaleKeys.whatsYourEmail.tr(),
               textAlign: TextAlign.left,
               style: getboldStyle(
                   color: ColorManager.blackColor, fontSize: AppSize.s13.mv),
@@ -89,25 +108,28 @@ class _SignUp1State extends State<SignUp1> {
         ),
         SizedBox(height: AppSize.s15.vs),
         CustomeTextFormField(
+          controller: _emailController,
           hintText: LocaleKeys.enterYourEmail.tr(),
-          // fillColor: ColorManager.primarydarkColor,
+          keyboardType: TextInputType.emailAddress,
           validator: (String? val) {
-            //   if (val == null || val.isEmpty) {
-            //     return AppStrings.enterYourEmail;
-            //   }
-            //   return null;
+            if (val == null || val.trim().isEmpty) {
+              return LocaleKeys.enterYourEmail.tr();
+            }
+            if (!val.contains('@')) {
+              return 'Enter a valid email address.';
+            }
+            return null;
           },
         ),
         TermAndCondition(),
         SizedBox(height: 10.vs),
         button(
-            text: LocaleKeys.contine.tr(),//AppStrings.contine,
+            text: LocaleKeys.contine.tr(), //AppStrings.contine,
             color: ColorManager.primary,
             onTap: () {
-              setState(() {
-                pageno = 1;
-              });
-              //Navigator.pushNamed(context, Routes.signUp2Route);
+              if (_formKey.currentState!.validate()) {
+                setState(() => pageno = 1);
+              }
             }),
       ],
     );
@@ -122,7 +144,7 @@ class _SignUp1State extends State<SignUp1> {
           child: Align(
             alignment: Alignment.topLeft,
             child: Text(
-               LocaleKeys.ChoosePassword.tr(),//AppStrings.ChoosePassword,
+              LocaleKeys.ChoosePassword.tr(), //AppStrings.ChoosePassword,
               textAlign: TextAlign.left,
               style: getboldStyle(
                   color: ColorManager.blackColor, fontSize: AppSize.s13.mv),
@@ -131,14 +153,14 @@ class _SignUp1State extends State<SignUp1> {
         ),
         SizedBox(height: AppSize.s15.vs),
         CustomeTextFormField(
-          hintText:  LocaleKeys.enterPassword.tr(),//AppStrings.enterPassword,
+          controller: _passwordController,
+          hintText: LocaleKeys.enterPassword.tr(), //AppStrings.enterPassword,
           obscureText: true,
-          // fillColor: ColorManager.primarydarkColor,
           validator: (String? val) {
-            //   if (val == null || val.isEmpty) {
-            //     return AppStrings.enterYourEmail;
-            //   }
-            //   return null;
+            if (val == null || val.length < 8) {
+              return 'Password must be at least 8 characters.';
+            }
+            return null;
           },
         ),
         Padding(
@@ -156,12 +178,12 @@ class _SignUp1State extends State<SignUp1> {
         ),
         SizedBox(height: 10.vs),
         button(
-            text: LocaleKeys.contine.tr(),// AppStrings.contine,
+            text: LocaleKeys.contine.tr(), // AppStrings.contine,
             color: ColorManager.primary,
             onTap: () {
-              setState(() {
-                pageno = 2;
-              });
+              if (_formKey.currentState!.validate()) {
+                setState(() => pageno = 2);
+              }
             }),
         SizedBox(height: 2.vs),
         GestureDetector(
@@ -171,7 +193,7 @@ class _SignUp1State extends State<SignUp1> {
             });
           }),
           child: Text(
-             LocaleKeys.back.tr(),//AppStrings.back,
+            LocaleKeys.back.tr(), //AppStrings.back,
             textAlign: TextAlign.left,
             style: getboldStyle(
                 color: ColorManager.greyBorderColor, fontSize: AppSize.s13.mv),
@@ -190,7 +212,7 @@ class _SignUp1State extends State<SignUp1> {
           child: Align(
             alignment: Alignment.topLeft,
             child: Text(
-               LocaleKeys.WhatsYourName.tr(),//AppStrings.WhatsYourName,
+              LocaleKeys.WhatsYourName.tr(), //AppStrings.WhatsYourName,
               textAlign: TextAlign.left,
               style: getboldStyle(
                   color: ColorManager.blackColor, fontSize: AppSize.s13.mv),
@@ -199,30 +221,33 @@ class _SignUp1State extends State<SignUp1> {
         ),
         SizedBox(height: AppSize.s15.vs),
         CustomeTextFormField(
-          hintText:  LocaleKeys.FirstName.tr(),//AppStrings.FirstName,
+          controller: _firstNameController,
+          hintText: LocaleKeys.FirstName.tr(), //AppStrings.FirstName,
           validator: (String? val) {
-            //   if (val == null || val.isEmpty) {
-            //     return AppStrings.enterYourEmail;
-            //   }
-            //   return null;
+            if (val == null || val.trim().isEmpty) {
+              return 'Enter your first name.';
+            }
+            return null;
           },
         ),
         SizedBox(height: AppSize.s15.vs),
         CustomeTextFormField(
-          hintText: LocaleKeys.LastName.tr(),//AppStrings.LastName,
+          controller: _lastNameController,
+          hintText: LocaleKeys.LastName.tr(), //AppStrings.LastName,
           validator: (String? val) {
-            //   if (val == null || val.isEmpty) {
-            //     return AppStrings.enterYourEmail;
-            //   }
-            //   return null;
+            if (val == null || val.trim().isEmpty) {
+              return 'Enter your last name.';
+            }
+            return null;
           },
         ),
+        TermAndCondition(),
         Padding(
           padding: const EdgeInsets.only(left: 20.0, bottom: 10.0, right: 10.0),
           child: Align(
             alignment: Alignment.topLeft,
             child: textspan(
-              text1: LocaleKeys.privacyPlicy.tr(),//AppStrings.privacyPlicy,
+              text1: LocaleKeys.privacyPlicy.tr(), //AppStrings.privacyPlicy,
               text2: "Privacy Policy and Terms & Conditions.",
               onTap: () =>
                   Navigator.pushReplacementNamed(context, Routes.loginRoute),
@@ -231,11 +256,9 @@ class _SignUp1State extends State<SignUp1> {
         ),
         SizedBox(height: 10.vs),
         button(
-            text: LocaleKeys.CREATEACCOUNT.tr(),//AppStrings.CREATEACCOUNT,
+            text: LocaleKeys.CREATEACCOUNT.tr(), //AppStrings.CREATEACCOUNT,
             color: ColorManager.primary,
-            onTap: () {
-              Navigator.pushReplacementNamed(context, Routes.Onboarding1Route);
-            }),
+            onTap: _isSubmitting ? null : _handleRegistration),
         SizedBox(height: 2.vs),
         GestureDetector(
           onTap: (() {
@@ -244,13 +267,56 @@ class _SignUp1State extends State<SignUp1> {
             });
           }),
           child: Text(
-            LocaleKeys.back.tr(),//AppStrings.back,
+            LocaleKeys.back.tr(), //AppStrings.back,
             textAlign: TextAlign.left,
             style: getboldStyle(
                 color: ColorManager.greyBorderColor, fontSize: AppSize.s13.mv),
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _handleRegistration() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (!rememberMe) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please accept the terms and conditions.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final success = await _authController.register(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isSubmitting = false);
+    if (success) {
+      Navigator.pushReplacementNamed(
+        context,
+        Routes.subscriptionViewPageRoute,
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _authController.errorMessage ?? 'Unable to create account.',
+        ),
+      ),
     );
   }
 
@@ -264,24 +330,23 @@ class _SignUp1State extends State<SignUp1> {
             height: 40.0,
             width: 40.0,
             child: Checkbox(
-              side: BorderSide(color: Color(0xff585858)),
+              side: const BorderSide(color: Color(0xff585858), width: 2),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               value: rememberMe,
               activeColor: ColorManager.primary,
+              checkColor: Colors.white,
               onChanged: (value) => setState(
-                () => rememberMe = value!,
+                () => rememberMe = value ?? false,
               ),
             ),
           ),
           RichText(
             text: TextSpan(
-              text: LocaleKeys.sendmeEmailFitopiaTeam.tr(),//AppStrings.sendmeEmailFitopiaTeam,
-              style: getRegularStyle(
-                  color: ColorManager
-                      .blackColor), //TextStyle(color: Colors.black, fontSize: 16.sp),
+              text: 'I accept Fitopia\'s ',
+              style: getRegularStyle(color: ColorManager.blackColor),
               children: <TextSpan>[
                 TextSpan(
-                  text: "Fitopia's team",
+                  text: 'Privacy Policy and Terms & Conditions',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       decoration: TextDecoration.underline,

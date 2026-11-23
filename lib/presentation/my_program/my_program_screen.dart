@@ -47,7 +47,7 @@ class _MyProgramViewState extends State<MyProgramView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Program'),
+        title: const Text('My Workout Plan'),
         actions: [
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
         ],

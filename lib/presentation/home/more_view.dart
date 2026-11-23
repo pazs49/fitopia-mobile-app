@@ -3,6 +3,7 @@ import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:fitopia/presentation/resources/index_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:proste_bezier_curve/proste_bezier_curve.dart';
 
 class MoreView extends StatelessWidget {
@@ -70,26 +71,22 @@ class MoreView extends StatelessWidget {
                           break;
                         case 4:
                           Navigator.pushNamed(
-                              context, Routes.workoutRoutinePageRoute);
-                          break;
-                        case 5:
-                          Navigator.pushNamed(
                               context, Routes.nutritionPageRoute);
                           break;
-                        case 6:
+                        case 5:
                           Navigator.pushNamed(context, Routes.ebookPageRoute);
                           break;
-                        case 7:
+                        case 6:
                           Navigator.pushNamed(
                               context, Routes.SettingsPageRoute);
                           break;
-                        case 8:
+                        case 7:
                           Navigator.pushNamed(context, Routes.chatPageRoute);
                           break;
-                        case 9:
+                        case 8:
                           Navigator.pushNamed(context, Routes.helpPageRoute);
                           break;
-                        case 10:
+                        case 9:
                           Navigator.pushNamed(context, Routes.logoutPageRoute);
                           break;
                         default:
@@ -104,6 +101,15 @@ class MoreView extends StatelessWidget {
   }
 
   Widget imageWidget() {
+    final userData = GetStorage().read('user_data');
+    final firstName =
+        userData is Map ? userData['first_name']?.toString() : null;
+    final lastName = userData is Map ? userData['last_name']?.toString() : null;
+    final fullName = [firstName, lastName]
+        .where((name) => name != null && name.trim().isNotEmpty)
+        .join(' ')
+        .trim();
+
     return Column(mainAxisAlignment: MainAxisAlignment.start, children: [
       Container(
         decoration: BoxDecoration(shape: BoxShape.circle),
@@ -116,7 +122,7 @@ class MoreView extends StatelessWidget {
         ),
       ),
       SizedBox(height: 3.0),
-      Text("Jhon Doe",
+      Text(fullName.isEmpty ? "User" : fullName,
           style: getmediumStyle(
               color: ColorManager.whiteColor, fontSize: AppSize.s13.mv)),
       SizedBox(height: 3.0),

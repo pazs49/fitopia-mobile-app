@@ -8,8 +8,9 @@ class MealPlanRepo {
   MealPlanRepo({required this.apiClient});
 
   Future<MealPlan> getMealPlan({DateTime? startDate, DateTime? endDate}) async {
-    final start = startDate ?? _startOfWeek(DateTime.now());
-    final end = endDate ?? start.add(const Duration(days: 6));
+    final today = DateTime.now();
+    final start = startDate ?? today.subtract(const Duration(days: 7));
+    final end = endDate ?? today.add(const Duration(days: 23));
     final response = await apiClient.getData(
       'api/meal-plans?start_date=${_date(start)}&end_date=${_date(end)}',
     );
@@ -36,9 +37,6 @@ class MealPlanRepo {
     });
     return response['is_eaten'] == true || response['is_eaten'] == 1;
   }
-
-  DateTime _startOfWeek(DateTime date) =>
-      date.subtract(Duration(days: date.weekday % 7));
 
   String _date(DateTime date) => date.toIso8601String().split('T').first;
 }

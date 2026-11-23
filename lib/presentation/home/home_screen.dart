@@ -1,5 +1,3 @@
-
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:fab_circular_menu_plus/fab_circular_menu_plus.dart';
 import 'package:fitopia/presentation/Mixins/size.dart';
@@ -36,22 +34,26 @@ class _HomeViewState extends State<HomeView> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
-          PageView(
-            scrollDirection: Axis.horizontal,
-            physics: NeverScrollableScrollPhysics(),
-            controller: _pagecontroller,
-            onPageChanged: (val) {
-              setState(() {
-                _currentIndex = val;
-              });
-            },
-            children: <Widget>[
-              DashboardView(),
-              AnalyticsView(),
-              NewsFeedsView(),
-              StoresView1(),
-              MoreView(),
-            ],
+          SafeArea(
+            top: true,
+            bottom: false,
+            child: PageView(
+              scrollDirection: Axis.horizontal,
+              physics: NeverScrollableScrollPhysics(),
+              controller: _pagecontroller,
+              onPageChanged: (val) {
+                setState(() {
+                  _currentIndex = val;
+                });
+              },
+              children: <Widget>[
+                DashboardView(),
+                AnalyticsView(),
+                NewsFeedsView(),
+                StoresView1(),
+                MoreView(),
+              ],
+            ),
           ),
           Visibility(
             visible: isRingOpen,
