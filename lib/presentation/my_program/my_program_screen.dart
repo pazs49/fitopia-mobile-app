@@ -90,8 +90,15 @@ class _MyProgramViewState extends State<MyProgramView> {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final program = programs[index];
-                return Card(
+                final card = Card(
                   child: ListTile(
+                    onTap: program.workoutId == null
+                        ? null
+                        : () => Navigator.pushNamed(
+                              context,
+                              Routes.workoutDetailPageRoute,
+                              arguments: program.toDashboardWorkout(),
+                            ),
                     contentPadding: const EdgeInsets.all(16),
                     leading: CircleAvatar(
                       backgroundColor: ColorManager.secondry.withAlpha(31),
@@ -119,6 +126,7 @@ class _MyProgramViewState extends State<MyProgramView> {
                     ),
                   ),
                 );
+                return card;
               },
             ),
           );
@@ -130,7 +138,7 @@ class _MyProgramViewState extends State<MyProgramView> {
   String _subtitle(MyProgram program) {
     final date = program.assignedDate;
     final status = program.status.isEmpty ? '' : program.status;
-    if (date == null || date.isEmpty) {
+    if (date.isEmpty) {
       return status;
     }
     return status.isEmpty ? 'Assigned $date' : 'Assigned $date • $status';

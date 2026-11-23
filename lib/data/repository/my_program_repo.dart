@@ -7,8 +7,13 @@ class MyProgramRepo {
   MyProgramRepo({required this.apiClient});
 
   Future<List<MyProgram>> getPrograms() async {
-    final response =
-        await apiClient.getData('api/workoutroutine-list?per_page=-1');
+    final startDate = DateTime.now();
+    final endDate = startDate.add(const Duration(days: 29));
+    final start = startDate.toIso8601String().split('T').first;
+    final end = endDate.toIso8601String().split('T').first;
+    final response = await apiClient.getData(
+      'api/ai-workouts/date-range?start_date=$start&end_date=$end',
+    );
     final rawData = response['data'];
     if (rawData is! List) {
       throw ApiException('The programs response was invalid.');
@@ -17,7 +22,6 @@ class MyProgramRepo {
     return rawData
         .whereType<Map>()
         .map((item) => MyProgram.fromJson(Map<String, dynamic>.from(item)))
-        .where((program) => program.title.isNotEmpty)
         .toList();
   }
 }

@@ -1,22 +1,28 @@
 class DashboardWorkout {
+  final int? workoutId;
   final int? assignmentId;
   final String title;
   final String description;
   final String level;
   final String type;
   final bool completed;
+  final bool canComplete;
 
   const DashboardWorkout({
+    required this.workoutId,
     required this.assignmentId,
     required this.title,
     required this.description,
     required this.level,
     required this.type,
     required this.completed,
+    this.canComplete = true,
   });
 
   factory DashboardWorkout.fromJson(Map<String, dynamic> json) {
     return DashboardWorkout(
+      workoutId: int.tryParse(
+          json['id']?.toString() ?? json['workout_id']?.toString() ?? ''),
       assignmentId: int.tryParse(json['assignment_id']?.toString() ?? ''),
       title: _string(json['title'], "Today's Workout"),
       description: _string(json['description'], ''),
@@ -25,6 +31,7 @@ class DashboardWorkout {
       completed: json['assignment_status'] == 'completed' ||
           json['status'] == 'completed' ||
           json['completed_at'] != null,
+      canComplete: json['can_complete'] as bool? ?? true,
     );
   }
 }
