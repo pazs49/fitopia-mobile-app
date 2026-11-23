@@ -188,7 +188,7 @@ class _MyMealsPlanViewState extends State<MyMealsPlanView> {
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: ColorManager.primary.withValues(alpha: .12),
+                backgroundColor: ColorManager.primary.withOpacity(.12),
                 child: Icon(_iconForCategory(meal.category),
                     color: ColorManager.primary),
               ),
@@ -305,7 +305,7 @@ class _ProfileCard extends StatelessWidget {
       if (profile.dietaryPreference != null) profile.dietaryPreference!,
     ];
     return Card(
-      color: ColorManager.primary.withValues(alpha: .08),
+      color: ColorManager.primary.withOpacity(.08),
       elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(16),
