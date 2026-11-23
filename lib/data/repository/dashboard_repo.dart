@@ -1,6 +1,7 @@
 import 'package:fitopia/data/api/api_client.dart';
 import 'package:fitopia/model/dashboard_content_model.dart';
 import 'package:fitopia/model/dashboard_nutrition_model.dart';
+import 'package:fitopia/model/workout_detail_model.dart';
 import 'package:get_storage/get_storage.dart';
 
 class DashboardRepo {
@@ -9,7 +10,9 @@ class DashboardRepo {
   DashboardRepo({required this.apiClient});
 
   Future<DashboardCalories> getTodayCalories() async {
-    final response = await apiClient.getData('api/gettodayCaloriesData');
+    final date = DateTime.now().toIso8601String().split('T').first;
+    final response =
+        await apiClient.getData('api/gettodayCaloriesData?date=$date');
     final error = response['error'];
     if (error is String && error.isNotEmpty) {
       throw ApiException(error);
@@ -19,7 +22,9 @@ class DashboardRepo {
   }
 
   Future<List<DashboardMacro>> getTodayMacros() async {
-    final response = await apiClient.getData('api/gettodayMacrosData');
+    final date = DateTime.now().toIso8601String().split('T').first;
+    final response =
+        await apiClient.getData('api/gettodayMacrosData?date=$date');
     final error = response['error'];
     if (error is String && error.isNotEmpty) {
       throw ApiException(error);
@@ -119,6 +124,21 @@ class DashboardRepo {
     );
   }
 
+  Future<WorkoutDetail> getWorkoutDetail(int workoutId) async {
+    final response =
+        await apiClient.getData('api/workout-detail?id=$workoutId');
+    final rawData = response['data'];
+    if (rawData is! Map) {
+      throw ApiException('The workout detail response was invalid.');
+    }
+
+    final data = Map<String, dynamic>.from(rawData);
+    if (data['exercises'] is! List) {
+      data['exercises'] = const <dynamic>[];
+    }
+    return WorkoutDetail.fromJson(data);
+  }
+
   Future<DashboardNutrition> getNutrition() async {
     final results = await Future.wait<dynamic>([
       getTodayCalories(),
@@ -136,9 +156,7 @@ class DashboardRepo {
     final todayText = DateTime.now().toIso8601String().split('T').first;
     final isToday = dateText == null || dateText == todayText;
     final dietResponse = apiClient.getData(
-      dateText == null
-          ? 'api/assign-diet-list'
-          : 'api/assign-diet-list?date=$dateText',
+      'api/assign-diet-list?date=${dateText ?? todayText}',
     );
     final responses = isToday
         ? await Future.wait<Map<String, dynamic>>([
