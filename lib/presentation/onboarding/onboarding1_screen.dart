@@ -5,6 +5,7 @@ import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:fitopia/presentation/resources/index_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:get_storage/get_storage.dart';
 
 class Onboarding1View extends StatefulWidget {
   const Onboarding1View({super.key});
@@ -31,6 +32,13 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
   String _weekGoals = 'maintain';
   bool _isSubmitting = false;
   String? _errorMessage;
+  final GetStorage _storage = GetStorage();
+
+  String get _draftKey {
+    final userData = _storage.read('user_data');
+    final userId = userData is Map ? userData['id'] : null;
+    return 'onboarding_draft_${userId ?? 'current'}';
+  }
 
   static const List<_Option> _goals = [
     _Option(3, 'Lose weight'),
@@ -74,16 +82,67 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _restoreDraft();
+  }
+
+  void _restoreDraft() {
+    final rawDraft = _storage.read(_draftKey);
+    if (rawDraft is! Map) {
+      return;
+    }
+
+    final draft = Map<String, dynamic>.from(rawDraft);
+    _currentPage = _asInt(draft['current_page']) ?? 0;
+    _goal = _asInt(draft['goal']);
+    _dietary = _asInt(draft['dietary']);
+    _active = _asInt(draft['active']);
+    _gender = _asInt(draft['gender']);
+    _femaleSpecificPlan = _asInt(draft['female_specific_plan']);
+    _weekGoals = draft['weekgoals'] is String
+        ? draft['weekgoals'] as String
+        : 'maintain';
+    _ageController.text = '${draft['age'] ?? _ageController.text}';
+    _heightController.text = '${draft['height'] ?? _heightController.text}';
+    _weightController.text = '${draft['weight'] ?? _weightController.text}';
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    return int.tryParse('$value');
+  }
+
+  Future<void> _saveDraft() async {
+    await _storage.write(_draftKey, {
+      'current_page': _currentPage,
+      'goal': _goal,
+      'dietary': _dietary,
+      'active': _active,
+      'gender': _gender,
+      'female_specific_plan': _femaleSpecificPlan,
+      'age': _ageController.text,
+      'height': _heightController.text,
+      'weight': _weightController.text,
+      'weekgoals': _weekGoals,
+    });
+  }
+
   Future<void> _next() async {
     if (!_validateCurrentPage()) {
       return;
     }
 
+    await _saveDraft();
     if (_currentPage < 8) {
       setState(() {
         _currentPage++;
         _errorMessage = null;
       });
+      await _saveDraft();
       return;
     }
 
@@ -133,6 +192,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
         'weight': int.parse(_weightController.text.trim()),
         'weekgoals': _weekGoals,
       });
+      await _storage.remove(_draftKey);
 
       if (!mounted) {
         return;
@@ -299,6 +359,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,
+        onChanged: (_) => _saveDraft(),
         decoration: InputDecoration(
           labelText: label,
           suffixText: suffix,
@@ -327,6 +388,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       if (_currentPage == 8) _weekGoals = option.value!;
       _errorMessage = null;
     });
+    _saveDraft();
   }
 
   static const List<String> _titles = [

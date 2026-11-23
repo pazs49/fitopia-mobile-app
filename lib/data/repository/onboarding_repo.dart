@@ -11,4 +11,13 @@ class OnboardingRepo {
       data,
     );
   }
+
+  Future<bool> hasCompletedOnboarding() async {
+    final response = await apiClient.getData('api/onboarding-status');
+    final completed = response['completed'];
+    if (completed is bool) {
+      return completed;
+    }
+    throw ApiException('The onboarding status response was invalid.');
+  }
 }
