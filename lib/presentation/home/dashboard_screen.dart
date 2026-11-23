@@ -17,6 +17,7 @@ import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:get_storage/get_storage.dart';
 import '../resources/index_manager.dart';
 
 class DashboardView extends StatefulWidget {
@@ -40,6 +41,8 @@ class _DashboardViewState extends State<DashboardView> {
   bool _redirectingToLogin = false;
   bool _selectedDayLoading = true;
   Timer? _selectedDayLoadDebounce;
+  int _nutritionRequestVersion = 0;
+  int _weeklyCaloriesRequestVersion = 0;
 
   @override
   void initState() {
@@ -84,9 +87,10 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Future<void> _loadNutrition() async {
+    final requestVersion = ++_nutritionRequestVersion;
     try {
       final nutrition = await _dashboardRepo.getNutrition();
-      if (!mounted) {
+      if (!mounted || requestVersion != _nutritionRequestVersion) {
         return;
       }
 
@@ -96,7 +100,7 @@ class _DashboardViewState extends State<DashboardView> {
       });
     } on ApiException catch (error) {
       _redirectIfSessionExpired(error);
-      if (!mounted) {
+      if (!mounted || requestVersion != _nutritionRequestVersion) {
         return;
       }
 
@@ -138,9 +142,10 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Future<void> _loadWeeklyCalories() async {
+    final requestVersion = ++_weeklyCaloriesRequestVersion;
     try {
       final weeklyCalories = await _dashboardRepo.getWeeklyCalories();
-      if (!mounted) {
+      if (!mounted || requestVersion != _weeklyCaloriesRequestVersion) {
         return;
       }
 
@@ -149,7 +154,7 @@ class _DashboardViewState extends State<DashboardView> {
       });
     } on ApiException catch (error) {
       _redirectIfSessionExpired(error);
-      if (!mounted) {
+      if (!mounted || requestVersion != _weeklyCaloriesRequestVersion) {
         return;
       }
 
@@ -488,20 +493,38 @@ class _DashboardViewState extends State<DashboardView> {
           subtile: workout.title,
           des: workout.description,
           imagepath: ImageAssets.workoutImage1,
+          onTap: workout.workoutId == null
+              ? null
+              : () async {
+                  await Navigator.pushNamed(
+                    context,
+                    Routes.workoutDetailPageRoute,
+                    arguments: workout,
+                  );
+                  if (mounted) {
+                    await _loadContent(selectedDate: _selectedDate);
+                  }
+                },
         ),
         TextButton.icon(
           onPressed: workout.assignmentId == null || !_isSelectedDateToday
               ? null
               : () => _toggleWorkout(workout),
           icon: Icon(
-            workout.completed ? Icons.undo : Icons.check_circle_outline,
+            !_isSelectedDateToday
+                ? Icons.event
+                : workout.completed
+                    ? Icons.undo
+                    : Icons.check_circle_outline,
           ),
           label: Text(
-            workout.completed
-                ? 'Undo complete'
-                : workout.assignmentId == null
-                    ? 'Unavailable'
-                    : 'Mark complete',
+            !_isSelectedDateToday
+                ? 'Available on workout day'
+                : workout.completed
+                    ? 'Undo complete'
+                    : workout.assignmentId == null
+                        ? 'Unavailable'
+                        : 'Mark complete',
           ),
         ),
       ],
@@ -634,7 +657,7 @@ class _DashboardViewState extends State<DashboardView> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 5.0, left: 10.0),
-                  child: Text("Remaining = Goal - Food + Exercise ",
+                  child: Text("Remaining = Goal - Food",
                       style: getRegularStyle(
                           color: Theme.of(context).textTheme.bodyText1!.color!,
                           fontSize: 12.mv)),
@@ -657,7 +680,8 @@ class _DashboardViewState extends State<DashboardView> {
                               _formatNumber(_nutrition?.calories.goal ?? 0)),
                           listTile(ImageAssets.foodIcon, "Food",
                               _formatNumber(_foodCalories)),
-                          listTile(ImageAssets.ExerciseIcon, "Exercise", "0"),
+                          listTile(ImageAssets.ExerciseIcon, "Exercise",
+                              "Not tracked"),
                         ],
                       ),
                     ),
@@ -820,6 +844,15 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget UserNotification() {
+    final userData = GetStorage().read('user_data');
+    final firstName =
+        userData is Map ? userData['first_name']?.toString() : null;
+    final lastName = userData is Map ? userData['last_name']?.toString() : null;
+    final fullName = [firstName, lastName]
+        .where((name) => name != null && name.trim().isNotEmpty)
+        .join(' ')
+        .trim();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       child: Row(
@@ -828,7 +861,7 @@ class _DashboardViewState extends State<DashboardView> {
               color: ColorManager.greyColor),
           textspan(
             text1: "Hi ",
-            text2: "Steve",
+            text2: fullName.isEmpty ? "there" : fullName,
             context: context,
           ),
           Spacer(),
@@ -1098,7 +1131,7 @@ class _DashboardViewState extends State<DashboardView> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(8.0, 8.0, 0.0, 5.0),
-                        child: Text("Week View",
+                        child: Text("Calories eaten (kcal)",
                             style: getRegularStyle(
                                 color: Theme.of(context)
                                     .textTheme

@@ -60,7 +60,10 @@ class DashboardMeal {
       id: int.tryParse(json['id']?.toString() ?? '') ?? 0,
       title: _string(json['title'], 'Meal'),
       description: _string(json['description'], ''),
-      category: _string(json['categorydiet_title'], 'Meal'),
+      category: _string(
+        json['meal_category'] ?? json['category'] ?? json['categorydiet_title'],
+        'Meal',
+      ),
       duration: _string(json['total_time'], ''),
       assignedDate: _dateString(json['assign_date']),
       logged: json['is_eaten'] == true ||
