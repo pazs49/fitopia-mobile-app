@@ -6,6 +6,22 @@ class SubscriptionRepo {
 
   SubscriptionRepo({required this.apiClient});
 
+  Future<bool> hasActiveSubscription() async {
+    final response = await apiClient.getData('api/check-subscription-status');
+    final hasActiveSubscription = response['has_active_subscription'];
+
+    if (hasActiveSubscription is bool) {
+      return hasActiveSubscription;
+    }
+    if (hasActiveSubscription is num) {
+      return hasActiveSubscription == 1;
+    }
+
+    throw ApiException(
+      'The subscription status response was invalid.',
+    );
+  }
+
   Future<List<SubscriptionModel>> getPackages() async {
     final response = await apiClient.getData('api/package-list');
     final rawPackages = response['data'];
