@@ -88,6 +88,7 @@ class DashboardRepo {
 
     return data
         .whereType<Map>()
+        .where((item) => item['is_eaten'] == true || item['is_eaten'] == 1)
         .map((item) => int.tryParse(item['id']?.toString() ?? ''))
         .whereType<int>()
         .toSet();

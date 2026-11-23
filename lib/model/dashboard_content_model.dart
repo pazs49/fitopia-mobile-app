@@ -56,7 +56,10 @@ class DashboardMeal {
       category: _string(json['categorydiet_title'], 'Meal'),
       duration: _string(json['total_time'], ''),
       assignedDate: _dateString(json['assign_date']),
-      logged: json['is_logged'] == true || json['is_logged'] == 1,
+      logged: json['is_eaten'] == true ||
+          json['is_eaten'] == 1 ||
+          json['is_logged'] == true ||
+          json['is_logged'] == 1,
     );
   }
 }
