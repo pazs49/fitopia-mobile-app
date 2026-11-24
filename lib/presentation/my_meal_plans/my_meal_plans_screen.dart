@@ -6,7 +6,12 @@ import '../../model/meal_plan_model.dart';
 import '../resources/index_manager.dart';
 
 class MyMealsPlanView extends StatefulWidget {
-  const MyMealsPlanView({super.key});
+  final String title;
+
+  const MyMealsPlanView({
+    super.key,
+    this.title = 'My Meal Plans',
+  });
 
   @override
   State<MyMealsPlanView> createState() => _MyMealsPlanViewState();
@@ -80,7 +85,7 @@ class _MyMealsPlanViewState extends State<MyMealsPlanView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Meal Plans'),
+        title: Text(widget.title),
         actions: [
           IconButton(onPressed: _loadPlan, icon: const Icon(Icons.refresh)),
         ],

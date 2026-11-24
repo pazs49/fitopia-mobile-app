@@ -47,11 +47,11 @@ class _HomeViewState extends State<HomeView> {
                 });
               },
               children: <Widget>[
-                DashboardView(),
+                DashboardView(refreshKey: _currentIndex),
                 AnalyticsView(),
                 NewsFeedsView(),
                 StoresView1(),
-                MoreView(),
+                MoreView(refreshKey: _currentIndex),
               ],
             ),
           ),
@@ -87,13 +87,17 @@ class _HomeViewState extends State<HomeView> {
           },
           children: <Widget>[
             circularMenueIcon(ImageAssets.workoutIcon, "Workout",
-                ColorManager.fabYellowColor),
-            circularMenueIcon(ImageAssets.nutritionFabIcon, "Nutration",
-                ColorManager.fabPurpleColor),
-            circularMenueIcon(
-                ImageAssets.barcodeIcon, "Barcode", ColorManager.fabgreenColor),
-            circularMenueIcon(
-                ImageAssets.timerIcon, "Timer", ColorManager.fabBlueColor),
+                ColorManager.fabYellowColor, () {
+              Navigator.pushNamed(context, Routes.myProgramPageRoute);
+            }),
+            circularMenueIcon(ImageAssets.nutritionFabIcon, "Nutrition",
+                ColorManager.fabPurpleColor, () {
+              Navigator.pushNamed(context, Routes.nutritionPageRoute);
+            }),
+            circularMenueIcon(ImageAssets.timerIcon, "Timer",
+                ColorManager.fabBlueColor, () {
+              Navigator.pushNamed(context, Routes.timerPageRoute);
+            }),
           ]),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
@@ -133,22 +137,28 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget circularMenueIcon(String IconPath, String title, Color? color) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-            height: 50,
-            width: 50,
-            decoration: BoxDecoration(
-                color: color ?? Colors.yellow, shape: BoxShape.circle),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: SvgPicture.asset(IconPath, color: ColorManager.blackColor),
-            )),
-        SizedBox(height: 5.0),
-        Text(title, style: getmediumStyle(color: color ?? Colors.yellow))
-      ],
+  Widget circularMenueIcon(
+      String IconPath, String title, Color? color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+              height: 50,
+              width: 50,
+              decoration: BoxDecoration(
+                  color: color ?? Colors.yellow, shape: BoxShape.circle),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child:
+                    SvgPicture.asset(IconPath, color: ColorManager.blackColor),
+              )),
+          SizedBox(height: 5.0),
+          Text(title, style: getmediumStyle(color: color ?? Colors.yellow))
+        ],
+      ),
     );
   }
 

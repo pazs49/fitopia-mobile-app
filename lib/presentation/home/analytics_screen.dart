@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 
 class AnalyticsView extends StatefulWidget {
@@ -334,20 +335,46 @@ class _AnalyticsViewState extends State<AnalyticsView> {
           final photo = photos[index];
           return Column(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  photo.imageUrl,
-                  width: 160,
-                  height: 160,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 160,
-                    height: 160,
-                    color: ColorManager.greyBoxColor,
-                    child: const Icon(Icons.image_not_supported_outlined),
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      photo.imageUrl,
+                      width: 160,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 160,
+                        height: 160,
+                        color: ColorManager.greyBoxColor,
+                        child: const Icon(Icons.image_not_supported_outlined),
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _isActionLoading
+                            ? null
+                            : () => _deleteProgressPhoto(photo),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Text(
@@ -631,6 +658,10 @@ class _AnalyticsViewState extends State<AnalyticsView> {
   }
 
   Future<void> _uploadProgressPhoto() async {
+    if (_isActionLoading) {
+      return;
+    }
+
     final image = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       imageQuality: 85,
@@ -646,18 +677,97 @@ class _AnalyticsViewState extends State<AnalyticsView> {
     );
   }
 
+  Future<void> _deleteProgressPhoto(AnalyticsPhoto photo) async {
+    if (_isActionLoading) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete progress photo?'),
+        content: const Text(
+          'This photo will be permanently removed from your progress history.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    await _runAction(
+      () => _analyticsRepo.deleteProgressPhoto(photo.id),
+      successMessage: 'Progress photo deleted.',
+    );
+  }
+
   Future<void> _exportData() async {
     await _runAction(() async {
       final bytes = await _analyticsRepo.exportMeasurements();
-      final directory = await getTemporaryDirectory();
-      final file = File(
-        '${directory.path}${Platform.pathSeparator}fitopia_measurements.pdf',
+      const fileName = 'fitopia_data_export.pdf';
+      String savedLocation;
+      if (Platform.isAndroid) {
+        savedLocation = await const MethodChannel('fitopia/file_downloads')
+                .invokeMethod<String>(
+              'saveToDownloads',
+              {'fileName': fileName, 'bytes': bytes},
+            ) ??
+            'Downloads/$fileName';
+      } else {
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File(
+          '${directory.path}${Platform.pathSeparator}$fileName',
+        );
+        await file.writeAsBytes(bytes, flush: true);
+        savedLocation = file.path;
+      }
+      if (!mounted) {
+        return;
+      }
+
+      final shouldShare = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Data export saved'),
+          content: Text(
+            'Your PDF was saved on this device.\n\n'
+            'Location: $savedLocation',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Done'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Share'),
+            ),
+          ],
+        ),
       );
-      await file.writeAsBytes(bytes, flush: true);
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'My Fitopia measurements',
-      );
+
+      if (shouldShare == true && mounted) {
+        final directory = await getApplicationDocumentsDirectory();
+        final shareFile = File(
+          '${directory.path}${Platform.pathSeparator}$fileName',
+        );
+        await shareFile.writeAsBytes(bytes, flush: true);
+        await Share.shareXFiles(
+          [XFile(shareFile.path)],
+          text: 'My Fitopia data export',
+        );
+      }
     });
   }
 

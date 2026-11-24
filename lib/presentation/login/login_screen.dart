@@ -251,6 +251,7 @@ class _LoginViewState extends State<LoginView> {
             color: ColorManager.whiteColor,
             fontSize: AppSize.s12.mv,
           ),
+          isLoading: _isSubmitting,
           onTap: onTap),
     );
   }

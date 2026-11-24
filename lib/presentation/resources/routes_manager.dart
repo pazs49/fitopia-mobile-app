@@ -14,6 +14,7 @@ import 'package:fitopia/presentation/my_meal_plans/my_meal_plans_screen.dart';
 import 'package:fitopia/presentation/my_profile/my_profile_screen.dart';
 import 'package:fitopia/presentation/my_program/my_program_screen.dart';
 import 'package:fitopia/presentation/nutrition/nutrition_screen.dart';
+import 'package:fitopia/presentation/notifications/notifications_screen.dart';
 import 'package:fitopia/presentation/onboarding/onboarding1_screen.dart';
 import 'package:fitopia/presentation/receipe_list/receipe_list_screen.dart';
 import 'package:fitopia/presentation/settings/settings_screen.dart';
@@ -22,6 +23,7 @@ import 'package:fitopia/presentation/splash/splash_screen.dart';
 import 'package:fitopia/presentation/subscription/subscription_screen.dart';
 import 'package:fitopia/presentation/workout_routine/workout_routine_screen.dart';
 import 'package:fitopia/presentation/workout_detail/workout_detail_screen.dart';
+import 'package:fitopia/presentation/timer/timer_screen.dart';
 import 'package:fitopia/model/dashboard_content_model.dart';
 import 'package:flutter/material.dart';
 
@@ -46,6 +48,8 @@ class Routes {
   static const String workoutRoutinePageRoute = "/workoutRoutineView";
   static const String workoutDetailPageRoute = "/workoutDetail";
   static const String nutritionPageRoute = "/nutritionView";
+  static const String timerPageRoute = "/timerView";
+  static const String notificationsPageRoute = "/notificationsView";
   static const String ebookPageRoute = "/ebookView";
   static const String helpPageRoute = "/helpView";
   static const String logoutPageRoute = "/logoutView";
@@ -103,6 +107,10 @@ class RouteGenerator {
         return unDefinedRoute();
       case Routes.nutritionPageRoute:
         return MaterialPageRoute(builder: (_) => NutritionView());
+      case Routes.timerPageRoute:
+        return MaterialPageRoute(builder: (_) => TimerView());
+      case Routes.notificationsPageRoute:
+        return MaterialPageRoute(builder: (_) => NotificationsView());
       case Routes.ebookPageRoute:
         return MaterialPageRoute(builder: (_) => EbookView());
       case Routes.helpPageRoute:

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:fitopia/data/notifications/push_notification_service.dart';
 import 'package:fitopia/data/api/api_client.dart';
 import 'package:fitopia/data/repository/onboarding_repo.dart';
 import 'package:fitopia/data/repository/subscription_repo.dart';
@@ -37,6 +38,7 @@ class _SplashScreenState extends State<SplashScreen> {
       _navigateTo(Routes.loginRoute);
       return;
     }
+    unawaited(PushNotificationService.instance.syncToken());
 
     setState(() {
       _isChecking = true;

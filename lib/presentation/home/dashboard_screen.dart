@@ -6,6 +6,7 @@ import 'package:fitopia/model/deshboard_model.dart';
 import 'package:fitopia/model/dashboard_nutrition_model.dart';
 import 'package:fitopia/data/api/api_client.dart';
 import 'package:fitopia/data/repository/dashboard_repo.dart';
+import 'package:fitopia/data/repository/profile_repo.dart';
 import 'package:fitopia/model/dashboard_content_model.dart';
 import 'package:fitopia/widgets/line_cahrt_sample7.dart';
 import 'package:fitopia/widgets/products_card_widgets.dart';
@@ -19,7 +20,9 @@ import 'package:get_storage/get_storage.dart';
 import '../resources/index_manager.dart';
 
 class DashboardView extends StatefulWidget {
-  const DashboardView({super.key});
+  final int refreshKey;
+
+  const DashboardView({super.key, this.refreshKey = 0});
 
   @override
   State<DashboardView> createState() => _DashboardViewState();
@@ -48,6 +51,14 @@ class _DashboardViewState extends State<DashboardView> {
     _loadNutrition();
     _loadSelectedDay();
     _loadWeeklyCalories();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshKey != oldWidget.refreshKey) {
+      setState(() {});
+    }
   }
 
   @override
@@ -1004,22 +1015,50 @@ class _DashboardViewState extends State<DashboardView> {
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       child: Row(
         children: [
-          SvgPicture.asset(ImageAssets.userCircleIcon,
-              color: ColorManager.greyColor),
+          _dashboardProfileAvatar(),
           textspan(
             text1: "Hi ",
             text2: fullName.isEmpty ? "there" : fullName,
             context: context,
           ),
           Spacer(),
-          SvgPicture.asset(
-            ImageAssets.bellIcon,
-            color: ColorManager.greyColor,
-            height: 20,
-            width: 20,
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                Routes.notificationsPageRoute,
+              );
+            },
+            icon: SvgPicture.asset(
+              ImageAssets.bellIcon,
+              color: ColorManager.greyColor,
+              height: 20,
+              width: 20,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _dashboardProfileAvatar() {
+    final userData = GetStorage().read('user_data');
+    final imageUrl = resolveProfileImageUrl(
+      userData is Map ? userData['profile_image'] : null,
+    );
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundImage: NetworkImage(imageUrl),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+    return SvgPicture.asset(
+      ImageAssets.userCircleIcon,
+      color: ColorManager.greyColor,
+      width: 36,
+      height: 36,
     );
   }
 

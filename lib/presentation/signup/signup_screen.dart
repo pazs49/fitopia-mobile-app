@@ -384,6 +384,7 @@ class _SignUp1State extends State<SignUp1> {
             color: ColorManager.whiteColor,
             fontSize: AppSize.s12.mv,
           ),
+          isLoading: _isSubmitting && pageno == 2,
           onTap: onTap),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:fitopia/data/api/api_client.dart';
 import 'package:fitopia/data/repository/onboarding_repo.dart';
+import 'package:fitopia/data/repository/profile_repo.dart';
 import 'package:fitopia/model/onboarding_model.dart';
 import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:fitopia/presentation/resources/index_manager.dart';
@@ -8,7 +9,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_storage/get_storage.dart';
 
 class Onboarding1View extends StatefulWidget {
-  const Onboarding1View({super.key});
+  final bool isEditing;
+
+  const Onboarding1View({super.key, this.isEditing = false});
 
   @override
   State<Onboarding1View> createState() => _Onboarding1ViewState();
@@ -16,12 +19,15 @@ class Onboarding1View extends StatefulWidget {
 
 class _Onboarding1ViewState extends State<Onboarding1View> {
   final OnboardingRepo _onboardingRepo = OnboardingRepo(apiClient: ApiClient());
+  final ProfileRepo _profileRepo = ProfileRepo(apiClient: ApiClient());
   final TextEditingController _ageController =
       TextEditingController(text: '25');
   final TextEditingController _heightController =
       TextEditingController(text: '170');
   final TextEditingController _weightController =
       TextEditingController(text: '70');
+  final TextEditingController _goalWeightController =
+      TextEditingController(text: '65');
 
   int _currentPage = 0;
   int? _goal;
@@ -32,6 +38,8 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
   String _weekGoals = 'maintain';
   bool _isSubmitting = false;
   String? _errorMessage;
+  bool _isLoadingProfile = false;
+  double? _currentWeight;
   final GetStorage _storage = GetStorage();
 
   String get _draftKey {
@@ -79,6 +87,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     _ageController.dispose();
     _heightController.dispose();
     _weightController.dispose();
+    _goalWeightController.dispose();
     super.dispose();
   }
 
@@ -86,6 +95,41 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
   void initState() {
     super.initState();
     _restoreDraft();
+    if (widget.isEditing) {
+      _loadExistingProfile();
+    }
+  }
+
+  Future<void> _loadExistingProfile() async {
+    setState(() => _isLoadingProfile = true);
+    try {
+      final profile = await _profileRepo.getSummary();
+      if (!mounted) return;
+      setState(() {
+        _currentPage = 0;
+        _goal = profile.goalId;
+        _dietary = profile.dietaryRequirementsId;
+        _active = profile.activityId;
+        _gender = profile.genderId;
+        _femaleSpecificPlan = profile.femaleSpecificPlan;
+        _weekGoals = profile.weekGoals ?? 'maintain';
+        _ageController.text = '${profile.age ?? 25}';
+        _heightController.text = '${profile.height ?? 170}';
+        _weightController.text = '${profile.initialWeight}';
+        _goalWeightController.text = '${profile.goalWeight}';
+        _currentWeight = profile.currentWeight > 0
+            ? profile.currentWeight
+            : profile.initialWeight;
+        _isLoadingProfile = false;
+      });
+    } on ApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _isLoadingProfile = false;
+          _errorMessage = error.message;
+        });
+      }
+    }
   }
 
   void _restoreDraft() {
@@ -107,6 +151,8 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     _ageController.text = '${draft['age'] ?? _ageController.text}';
     _heightController.text = '${draft['height'] ?? _heightController.text}';
     _weightController.text = '${draft['weight'] ?? _weightController.text}';
+    _goalWeightController.text =
+        '${draft['goal_weight'] ?? _goalWeightController.text}';
   }
 
   int? _asInt(dynamic value) {
@@ -127,6 +173,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       'age': _ageController.text,
       'height': _heightController.text,
       'weight': _weightController.text,
+      'goal_weight': _goalWeightController.text,
       'weekgoals': _weekGoals,
     });
   }
@@ -137,7 +184,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     }
 
     await _saveDraft();
-    if (_currentPage < 8) {
+    if (_currentPage < 9) {
       setState(() {
         _currentPage++;
         _errorMessage = null;
@@ -161,8 +208,15 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
 
     if (_currentPage == 5 && !_validNumber(_ageController, 13, 120) ||
         _currentPage == 6 && !_validNumber(_heightController, 100, 250) ||
-        _currentPage == 7 && !_validNumber(_weightController, 20, 350)) {
+        _currentPage == 7 &&
+            !_validDecimal(_weightController, 20, 350) ||
+        _currentPage == 8 &&
+            !_validDecimal(_goalWeightController, 20, 350)) {
       _showError('Please enter a valid value to continue.');
+      return false;
+    }
+
+    if (_currentPage == 8 && !_validGoalWeight()) {
       return false;
     }
 
@@ -174,7 +228,56 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     return value != null && value >= min && value <= max;
   }
 
+  bool _validDecimal(TextEditingController controller, double min, double max) {
+    final value = double.tryParse(controller.text.trim());
+    return value != null && value >= min && value <= max;
+  }
+
+  bool _validGoalWeight() {
+    final goalWeight = double.tryParse(_goalWeightController.text.trim());
+    final referenceWeight = _currentWeight ??
+        double.tryParse(_weightController.text.trim());
+    if (goalWeight == null || referenceWeight == null) {
+      return false;
+    }
+
+    if (_goal == 3 && goalWeight >= referenceWeight) {
+      _showError('For losing weight, your goal weight must be below your current weight.');
+      return false;
+    }
+    if ((_goal == 1 || _goal == 5) && goalWeight <= referenceWeight) {
+      _showError('For gaining weight, your goal weight must be above your current weight.');
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _submit() async {
+    if (widget.isEditing) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Refresh your plans?'),
+          content: const Text(
+            'Your answers will update your calorie targets and replace future '
+            'meal and workout recommendations. Your history and progress photos '
+            'will not be deleted.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Update plan'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -189,7 +292,8 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
         'female_specific_plan': _femaleSpecificPlan,
         'age': int.parse(_ageController.text.trim()),
         'height': int.parse(_heightController.text.trim()),
-        'weight': int.parse(_weightController.text.trim()),
+        'weight': double.parse(_weightController.text.trim()),
+        'goal_weight': double.parse(_goalWeightController.text.trim()),
         'weekgoals': _weekGoals,
       });
       await _storage.remove(_draftKey);
@@ -197,7 +301,11 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       if (!mounted) {
         return;
       }
-      Navigator.pushReplacementNamed(context, Routes.HomePageRoute);
+      if (widget.isEditing) {
+        Navigator.pop(context, true);
+      } else {
+        Navigator.pushReplacementNamed(context, Routes.HomePageRoute);
+      }
     } on ApiException catch (error) {
       if (mounted) {
         setState(() {
@@ -221,7 +329,15 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingProfile) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final title = _titles[_currentPage];
+    final imageIndex = _currentPage < OnboardingImgTitle.length
+        ? _currentPage
+        : OnboardingImgTitle.length - 1;
 
     return Scaffold(
       body: SafeArea(
@@ -230,7 +346,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
             _progress(),
             const SizedBox(height: 18),
             SvgPicture.asset(
-              OnboardingImgTitle[_currentPage].imagePath!,
+              OnboardingImgTitle[imageIndex].imagePath!,
               height: 150,
             ),
             const SizedBox(height: 18),
@@ -261,7 +377,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
                   child: Text(
                     _isSubmitting
                         ? 'Saving...'
-                        : _currentPage == 8
+                        : _currentPage == 9
                             ? 'Finish'
                             : 'Next',
                   ),
@@ -279,7 +395,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: Row(
         children: List.generate(
-          9,
+          10,
           (index) => Expanded(
             child: Container(
               height: 8,
@@ -307,6 +423,9 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     if (_currentPage == 7) {
       return _numberField(_weightController, 'Weight', 'kg');
     }
+    if (_currentPage == 8) {
+      return _numberField(_goalWeightController, 'Goal weight', 'kg');
+    }
 
     final options = <_Option>[
       if (_currentPage == 0) ..._goals,
@@ -314,7 +433,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       if (_currentPage == 2) ..._activityLevels,
       if (_currentPage == 3) ..._genders,
       if (_currentPage == 4) ..._femalePlans,
-      if (_currentPage == 8) ..._weeklyGoals,
+      if (_currentPage == 9) ..._weeklyGoals,
     ];
 
     return ListView.builder(
@@ -385,7 +504,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
       if (_currentPage == 2) _active = option.id;
       if (_currentPage == 3) _gender = option.id;
       if (_currentPage == 4) _femaleSpecificPlan = option.id;
-      if (_currentPage == 8) _weekGoals = option.value!;
+      if (_currentPage == 9) _weekGoals = option.value!;
       _errorMessage = null;
     });
     _saveDraft();
@@ -400,6 +519,7 @@ class _Onboarding1ViewState extends State<Onboarding1View> {
     'How old are you?',
     'What is your height?',
     'What is your weight?',
+    'What is your goal weight?',
     'What is your weekly goal?',
   ];
 }

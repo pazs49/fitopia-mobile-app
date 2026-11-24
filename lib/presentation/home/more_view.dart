@@ -1,13 +1,113 @@
+import 'dart:io';
+
+import 'package:fitopia/data/api/api_client.dart';
+import 'package:fitopia/data/repository/profile_repo.dart';
+import 'package:fitopia/model/profile_summary_model.dart';
 import 'package:fitopia/model/more_menue_model.dart';
 import 'package:fitopia/presentation/Mixins/size.dart';
 import 'package:fitopia/presentation/resources/index_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:proste_bezier_curve/proste_bezier_curve.dart';
 
-class MoreView extends StatelessWidget {
-  const MoreView({super.key});
+class MoreView extends StatefulWidget {
+  final int refreshKey;
+
+  const MoreView({super.key, this.refreshKey = 0});
+
+  @override
+  State<MoreView> createState() => _MoreViewState();
+}
+
+class _MoreViewState extends State<MoreView> {
+  final ProfileRepo _profileRepo = ProfileRepo(apiClient: ApiClient());
+  ProfileSummary? _profileSummary;
+  bool _isUploadingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileSummary();
+  }
+
+  @override
+  void didUpdateWidget(covariant MoreView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshKey != oldWidget.refreshKey &&
+        widget.refreshKey == 4) {
+      _loadProfileSummary();
+    }
+  }
+
+  Future<void> _loadProfileSummary() async {
+    try {
+      final summary = await _profileRepo.getSummary();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _profileSummary = summary;
+      });
+    } on ApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _profileSummary = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
+  }
+
+  Future<void> _uploadProfilePhoto() async {
+    if (_isUploadingPhoto) {
+      return;
+    }
+
+    final image = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+      maxWidth: 800,
+    );
+    if (image == null || !mounted) {
+      return;
+    }
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      final response = await _profileRepo.uploadProfilePhoto(File(image.path));
+      final uploadedUser = response['data'];
+      if (uploadedUser is Map) {
+        final storage = GetStorage();
+        final existing = storage.read('user_data');
+        final userData = <String, dynamic>{
+          if (existing is Map) ...Map<String, dynamic>.from(existing),
+          ...Map<String, dynamic>.from(uploadedUser),
+        };
+        await storage.write('user_data', userData);
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,9 +136,17 @@ class MoreView extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ActiveProgess("Active", "01", "Day"),
+                    ActiveProgress(
+                      "Active",
+                      _activeValue,
+                      _activeUnit,
+                    ),
                     imageWidget(),
-                    ActiveProgess("Progess", "0 KG", "Kgs lost"),
+                    ActiveProgress(
+                      "Progress",
+                      _progressValue,
+                      _profileSummary?.progressUnit ?? 'Kgs',
+                    ),
                   ],
                 ),
               ),
@@ -100,6 +208,31 @@ class MoreView extends StatelessWidget {
     );
   }
 
+  String get _activeValue {
+    if (_profileSummary == null) {
+      return '--';
+    }
+    return _profileSummary!.activeDays.split(' ').first;
+  }
+
+  String get _activeUnit {
+    if (_profileSummary == null) {
+      return 'Days';
+    }
+    return _profileSummary!.activeDays.split(' ').skip(1).join(' ');
+  }
+
+  String get _progressValue {
+    final summary = _profileSummary;
+    if (summary == null) {
+      return '--';
+    }
+    final value = summary.progressValue % 1 == 0
+        ? summary.progressValue.toStringAsFixed(0)
+        : summary.progressValue.toStringAsFixed(1);
+    return '$value KG';
+  }
+
   Widget imageWidget() {
     final userData = GetStorage().read('user_data');
     final firstName =
@@ -115,9 +248,33 @@ class MoreView extends StatelessWidget {
         decoration: BoxDecoration(shape: BoxShape.circle),
         child: Padding(
           padding: const EdgeInsets.all(2.0),
-          child: CircleAvatar(
-            radius: 40.0,
-            backgroundImage: AssetImage(ImageAssets.userStoreImge1),
+          child: GestureDetector(
+            onTap: _uploadProfilePhoto,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                _profileAvatar(),
+                if (_isUploadingPhoto)
+                  const SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                if (!_isUploadingPhoto)
+                  const Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.white,
+                      child: Icon(Icons.camera_alt, size: 14),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -138,7 +295,25 @@ class MoreView extends StatelessWidget {
     ]);
   }
 
-  Widget ActiveProgess(String txt1, String txt2, String txt3) {
+  Widget _profileAvatar() {
+    final userData = GetStorage().read('user_data');
+    final imageUrl = resolveProfileImageUrl(
+      userData is Map ? userData['profile_image'] : null,
+    );
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 40,
+        backgroundImage: NetworkImage(imageUrl),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+    return CircleAvatar(
+      radius: 40,
+      backgroundImage: AssetImage(ImageAssets.userStoreImge1),
+    );
+  }
+
+  Widget ActiveProgress(String txt1, String txt2, String txt3) {
     return Column(
       children: [
         Text(txt1,

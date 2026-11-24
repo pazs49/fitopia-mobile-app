@@ -50,6 +50,13 @@ class AnalyticsRepo {
     );
   }
 
+  Future<void> deleteProgressPhoto(int photoId) async {
+    await apiClient.postAuthenticatedData(
+      'api/userselfiegallier_delete',
+      {'id': photoId},
+    );
+  }
+
   Future<List<int>> exportMeasurements() {
     return apiClient.getAuthenticatedBytes('api/usermeasurement1_pdfview');
   }

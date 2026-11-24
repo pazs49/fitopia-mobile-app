@@ -2,6 +2,7 @@ import 'package:fitopia/data/api/api_client.dart';
 import 'package:fitopia/data/repository/auth_repo.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:fitopia/data/notifications/push_notification_service.dart';
 
 class AuthController extends GetxController {
   AuthController({AuthRepo? authRepo})
@@ -48,6 +49,7 @@ class AuthController extends GetxController {
         await storage.write('refresh_token', refreshToken);
       }
       await storage.write('user_data', userData);
+      await PushNotificationService.instance.syncToken();
 
       return true;
     } on ApiException catch (error) {
@@ -97,6 +99,7 @@ class AuthController extends GetxController {
         await storage.write('refresh_token', refreshToken);
       }
       await storage.write('user_data', userData);
+      await PushNotificationService.instance.syncToken();
 
       return true;
     } on ApiException catch (error) {

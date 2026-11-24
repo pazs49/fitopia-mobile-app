@@ -17,7 +17,7 @@ class CodegenLoader extends AssetLoader{
   static const Map<String,dynamic> en = {
   "English_US": "English (US)",
   "Language": "Language",
-  "login": "LGOIN",
+  "login": "LOGIN",
   "signUp": "Sign Up",
   "arabic": "Arabic",
   "next": "Next",

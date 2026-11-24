@@ -89,6 +89,20 @@ class DashboardWeeklyCalories {
   }
 }
 
+class WaterIntakeSummary {
+  final int totalMl;
+
+  const WaterIntakeSummary({
+    required this.totalMl,
+  });
+
+  factory WaterIntakeSummary.fromJson(Map<String, dynamic> json) {
+    return WaterIntakeSummary(
+      totalMl: _number(json['total_ml']).round(),
+    );
+  }
+}
+
 String _weekdayLabel(DateTime date) {
   const labels = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   return labels[date.weekday % 7];

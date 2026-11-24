@@ -18,6 +18,7 @@ class ApiException implements Exception {
 
 class ApiClient {
   static const Duration _timeout = Duration(seconds: 30);
+  Future<bool>? _refreshFuture;
 
   Uri _uri(String path) {
     if (AppStrings.appBaseUrl.isEmpty) {
@@ -75,7 +76,10 @@ class ApiClient {
     }
   }
 
-  Future<Map<String, dynamic>> getData(String path) async {
+  Future<Map<String, dynamic>> getData(
+    String path, {
+    bool retryAfterRefresh = true,
+  }) async {
     final uri = _uri(path);
     final headers = _authenticatedHeaders();
 
@@ -90,6 +94,9 @@ class ApiClient {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final decodedBody = _decodeErrorBody(response);
         if (response.statusCode == 401) {
+          if (retryAfterRefresh && await _refreshAccessToken()) {
+            return getData(path, retryAfterRefresh: false);
+          }
           await _clearExpiredSession();
         }
         throw ApiException(
@@ -116,7 +123,9 @@ class ApiClient {
 
   Future<Map<String, dynamic>> postAuthenticatedData(
     String path,
-    Map<String, dynamic> body,
+    Map<String, dynamic> body, {
+    bool retryAfterRefresh = true,
+  }
   ) async {
     final uri = _uri(path);
     final headers = _authenticatedHeaders();
@@ -133,6 +142,13 @@ class ApiClient {
       final decodedBody = _decodeBody(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (response.statusCode == 401) {
+          if (retryAfterRefresh && await _refreshAccessToken()) {
+            return postAuthenticatedData(
+              path,
+              body,
+              retryAfterRefresh: false,
+            );
+          }
           await _clearExpiredSession();
         }
         throw ApiException(
@@ -161,6 +177,7 @@ class ApiClient {
     String path, {
     required File file,
     required String fieldName,
+    bool retryAfterRefresh = true,
   }) async {
     final headers = _authenticatedHeaders()..remove('Content-Type');
     final request = http.MultipartRequest('POST', _uri(path))
@@ -174,6 +191,14 @@ class ApiClient {
       final decodedBody = _decodeBody(response);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (response.statusCode == 401) {
+          if (retryAfterRefresh && await _refreshAccessToken()) {
+            return postAuthenticatedMultipart(
+              path,
+              file: file,
+              fieldName: fieldName,
+              retryAfterRefresh: false,
+            );
+          }
           await _clearExpiredSession();
         }
         throw ApiException(
@@ -198,13 +223,19 @@ class ApiClient {
     }
   }
 
-  Future<List<int>> getAuthenticatedBytes(String path) async {
+  Future<List<int>> getAuthenticatedBytes(
+    String path, {
+    bool retryAfterRefresh = true,
+  }) async {
     try {
       final response = await http
           .get(_uri(path), headers: _authenticatedHeaders())
           .timeout(_timeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (response.statusCode == 401) {
+          if (retryAfterRefresh && await _refreshAccessToken()) {
+            return getAuthenticatedBytes(path, retryAfterRefresh: false);
+          }
           await _clearExpiredSession();
         }
         throw ApiException(
@@ -236,6 +267,59 @@ class ApiClient {
       'Authorization': 'Bearer $token',
       'X-Timezone-Offset': DateTime.now().timeZoneOffset.inMinutes.toString(),
     };
+  }
+
+  Future<bool> _refreshAccessToken() {
+    final existingRefresh = _refreshFuture;
+    if (existingRefresh != null) {
+      return existingRefresh;
+    }
+
+    final refresh = _performTokenRefresh();
+    _refreshFuture = refresh;
+    refresh.whenComplete(() {
+      if (identical(_refreshFuture, refresh)) {
+        _refreshFuture = null;
+      }
+    });
+    return refresh;
+  }
+
+  Future<bool> _performTokenRefresh() async {
+    final storage = GetStorage();
+    final refreshToken = storage.read<String>('refresh_token');
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return false;
+    }
+
+    try {
+      final response = await http
+          .post(
+            _uri('api/refresh-token'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $refreshToken',
+            },
+          )
+          .timeout(_timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return false;
+      }
+
+      final body = _decodeBody(response);
+      final accessToken = body['access_token'];
+      if (accessToken is! String || accessToken.isEmpty) {
+        return false;
+      }
+      await storage.write('api_token', accessToken);
+      return true;
+    } on TimeoutException {
+      return false;
+    } on http.ClientException {
+      return false;
+    } on ApiException {
+      return false;
+    }
   }
 
   Future<void> _clearExpiredSession() async {

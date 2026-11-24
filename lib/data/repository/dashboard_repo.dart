@@ -52,6 +52,23 @@ class DashboardRepo {
     return DashboardWeeklyCalories.fromJson(response);
   }
 
+  Future<WaterIntakeSummary> getWaterToday() async {
+    final response = await apiClient.getData('api/water-intake/today');
+    return WaterIntakeSummary.fromJson(response);
+  }
+
+  Future<WaterIntakeSummary> addWater({required int milliliters}) async {
+    await apiClient.postAuthenticatedData('api/water-intake', {
+      'intake_ml': milliliters,
+    });
+    return getWaterToday();
+  }
+
+  Future<WaterIntakeSummary> undoLatestWater() async {
+    await apiClient.postAuthenticatedData('api/water-intake/undo', {});
+    return getWaterToday();
+  }
+
   Future<void> logMeal(DashboardMeal meal) async {
     final userData = GetStorage().read('user_data');
     final userId = userData is Map ? userData['id'] : null;

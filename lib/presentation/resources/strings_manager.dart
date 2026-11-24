@@ -53,7 +53,7 @@ class AppStrings {
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore";
 }
 //   ///Login
-//   static const String login = "LGOIN";
+//   static const String login = "LOGIN";
 //   static const String signUp = "Sign Up";
 //   static const String forgotPassword = "Forgot Password?";
 //   static const String enterYourEmail = "Enter your email";
