@@ -55,6 +55,7 @@ dependencies:
   share_plus: ^6.3.4
   firebase_core: ^2.15.1
   firebase_messaging: ^14.6.7
+  flutter_native_timezone: 2.0.0
 
 dev_dependencies:
   flutter_test:

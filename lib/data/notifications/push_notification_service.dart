@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:fitopia/data/api/api_client.dart';
+import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 import 'package:get_storage/get_storage.dart';
 
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -99,13 +100,30 @@ class PushNotificationService {
     }
 
     try {
+      final timezone = await _getDeviceTimezone();
+      final payload = <String, dynamic>{
+        'fcm_token': token,
+      };
+      if (timezone != null && timezone.isNotEmpty) {
+        payload['timezone'] = timezone;
+      }
+
       await _apiClient.postAuthenticatedData(
         'api/devicetoken',
-        {'fcm_token': token},
+        payload,
       );
       _log('Firebase device token registered with the API.');
     } on ApiException catch (error) {
       _log('Unable to register the push token: ${error.message}');
+    }
+  }
+
+  Future<String?> _getDeviceTimezone() async {
+    try {
+      return await FlutterNativeTimezone.getLocalTimezone();
+    } catch (error) {
+      _log('Unable to read the device timezone: $error');
+      return null;
     }
   }
 
